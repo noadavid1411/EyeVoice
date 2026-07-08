@@ -38,14 +38,37 @@ dependencies:
   flutter_tts: ^4.2.5
   shared_preferences: ^2.5.5
 
-  # Eye-tracking : détection visage/iris via caméra frontale (MediaPipe
-  # Face Mesh, 478 points dont 10 points d'iris quand enableIris est actif).
-  # Android + iOS. À valider/ajuster par eye-tracking-engineer lors du spike
-  # de calibration (Phase 1b) : package récent, à surveiller en termes de
-  # stabilité/maintenance avant la mise en production. Solution de repli
-  # envisageable si besoin : face_detection_tflite (implémentation Dart
-  # pure des mêmes modèles MediaPipe via LiteRT, sans plugin natif).
+  # Eye-tracking : détection visage/iris via caméra frontale.
+  #
+  # Choix revalidé en Phase 1b (eye-tracking-engineer), `mediapipe_face_mesh`
+  # conservé (pas de remplacement malgré la fraîcheur du package — publié
+  # < 24 h, 9 likes au moment de l'audit, verified publisher). Un candidat de
+  # repli plus "mature" a été essayé en premier (`face_detection_tflite`,
+  # même modèles MediaPipe via LiteRT) mais écarté : sa dépendance
+  # `opencv_dart`/`dartcv4` s'appuie sur le système expérimental de "native
+  # assets" de Dart (hooks + `native_toolchain_cmake`), qui tente de
+  # compiler une lib native pour la plateforme HÔTE dès `flutter test` — pas
+  # seulement au build mobile. Sur ce projet, ça fait échouer `flutter test`
+  # pour TOUTE la codebase (pas seulement `eyetracking`) sur toute machine
+  # sans CMake + toolchain C++ installés (vérifié : échec immédiat sur ce
+  # poste de dev, faute de CMake/Visual Studio). Ça viole frontalement la
+  # contrainte "détection/mapping/dwell testables séparément" — un risque de
+  # dépendance non testable l'emporte sur un risque de fraîcheur de
+  # package. `mediapipe_face_mesh` est un plugin FFI classique (binaires
+  # natifs précompilés par plateforme, chargés via `dart:ffi`/`dlopen` au
+  # runtime sur l'appareil) : sa résolution de dépendances est légère (juste
+  # `ffi` + Flutter/test), sans hook de compilation côté hôte — vérifié via
+  # `flutter pub get` sur un projet de sondage isolé. Fournit 468 points de
+  # mesh + jusqu'à 478 avec landmarks d'iris (`enableIris: true`),
+  # Android + iOS. À surveiller (maintenance/stabilité) au fil des prochaines
+  # phases ; le contrat `FaceGazeDetector` de `lib/eyetracking/detection`
+  # isole ce choix pour permettre un remplacement sans impact sur le reste
+  # du pipeline si besoin.
   mediapipe_face_mesh: ^2.0.0
+  # Accès au flux caméra frontale (CameraImage) consommé par
+  # `mediapipe_face_mesh`. Plugin fédéré standard (pas de hook de
+  # compilation côté hôte), verrouillé aux côtés du détecteur ci-dessus.
+  camera: ^0.12.0
 
 dev_dependencies:
   flutter_test:

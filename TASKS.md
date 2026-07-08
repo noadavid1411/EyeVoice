@@ -20,11 +20,11 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 
 ## Phase 1b — Eye-tracking (eye-tracking-engineer)
 
-- [ ] Intégration MediaPipe (détection visage/iris, caméra frontale)
-- [ ] Spike calibration (collecte points de référence, mapping regard→écran)
-- [ ] Mapping vers zones logiques + zone morte centrale (15-25 %, réglable)
-- [ ] State machine dwell time (défaut 1300 ms, annulation sortie zone/perte visage/instabilité)
-- [ ] Exposition `GazeState` + signal de dégradation (mode tactile de secours)
+- [x] Intégration MediaPipe (détection visage/iris, caméra frontale) — `mediapipe_face_mesh` revalidé (voir `pubspec.yaml`), wrapper `lib/eyetracking/detection/face_mesh_gaze_detector.dart` derrière l'interface `FaceGazeDetector`
+- [x] Spike calibration (collecte points de référence, mapping regard→écran) — `lib/eyetracking/calibration/calibration_session.dart` (régression linéaire) + `lib/eyetracking/models/calibration_profile.dart`
+- [x] Mapping vers zones logiques + zone morte centrale (15-25 %, réglable) — `lib/eyetracking/mapping/zone_mapper.dart` + `lib/eyetracking/models/eyetracking_settings.dart`
+- [x] State machine dwell time (défaut 1300 ms, annulation sortie zone/perte visage/instabilité) — `lib/eyetracking/dwell/dwell_time_controller.dart`
+- [x] Exposition `GazeState` + signal de dégradation (mode tactile de secours) — `lib/eyetracking/gaze_tracking_pipeline.dart` (orchestrateur) + `lib/eyetracking/signal/signal_quality_monitor.dart`
 
 ## Phase 1c — Interface (flutter-ui-engineer)
 
