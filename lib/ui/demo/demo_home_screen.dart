@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/models/menu_action.dart';
 import '../../domain/models/menu_screen.dart';
-import '../../domain/models/sample_menu_config.dart';
 import '../../eyetracking/models/gaze_state.dart';
 import '../../eyetracking/models/screen_layout_mode.dart';
 import '../providers/gaze_tracking_providers.dart';
@@ -29,9 +28,10 @@ import '../widgets/confirmation_dialog.dart';
 ///   (voir la doc de ce détecteur pour le point de bascule vers le vrai
 ///   `FaceMeshGazeDetector`).
 ///
-/// Toujours construit sur `sampleMenuConfig` (fixture en mémoire de la
-/// Phase 1a) : le chargement d'un vrai fichier `menu-config.json` reste
-/// hors périmètre de la Phase 2 (TASKS.md).
+/// N'est monté par [EyeVoiceApp] (`lib/main.dart`) qu'une fois le vrai
+/// `menu-config.json` chargé avec succès (`menuConfigProvider`,
+/// `lib/data/menu_config_repository.dart`) : voir la doc de
+/// [MenuNavigationController] pour la justification de ce séquencement.
 ///
 /// Phase 3 (TASKS.md) : affiche aussi [ConfirmationDialog] tant que
 /// `uiMode == UiMode.confirmation` (section 17.2, actions sensibles) et
@@ -102,7 +102,7 @@ class DemoHomeScreen extends ConsumerWidget {
     }
 
     final screen = navState.screen;
-    final isHome = screen.id == sampleMenuConfig.homeScreenId;
+    final isHome = screen.id == navState.homeScreenId;
     return Grid4Screen(
       title: isHome ? null : screen.title,
       gazeState: gazeState,

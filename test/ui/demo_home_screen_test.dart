@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:eyevoice/data/menu_config_repository.dart';
 import 'package:eyevoice/data/settings_repository.dart';
+import 'package:eyevoice/domain/models/sample_menu_config.dart';
 import 'package:eyevoice/eyetracking/detection/face_gaze_detector.dart';
 import 'package:eyevoice/eyetracking/models/raw_gaze_sample.dart';
 import 'package:eyevoice/services/tts_service.dart';
@@ -77,6 +79,11 @@ void main() {
             ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
             faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
             sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
+            // Config synchrone (voir la doc de `MenuNavigationController.build`)
+            // plutôt que le vrai asset : évite tout `pump` supplémentaire pour
+            // laisser `menuConfigProvider` se résoudre avant que `DemoHomeScreen`
+            // (donc `EyeVoiceApp`-like gating) ne soit pompé.
+            menuConfigProvider.overrideWith((ref) => sampleMenuConfig),
           ],
           child: const MaterialApp(home: DemoHomeScreen()),
         ),
@@ -105,6 +112,11 @@ void main() {
             ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
             faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
             sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
+            // Config synchrone (voir la doc de `MenuNavigationController.build`)
+            // plutôt que le vrai asset : évite tout `pump` supplémentaire pour
+            // laisser `menuConfigProvider` se résoudre avant que `DemoHomeScreen`
+            // (donc `EyeVoiceApp`-like gating) ne soit pompé.
+            menuConfigProvider.overrideWith((ref) => sampleMenuConfig),
           ],
           child: const MaterialApp(home: DemoHomeScreen()),
         ),
@@ -131,6 +143,11 @@ void main() {
             ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
             faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
             sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
+            // Config synchrone (voir la doc de `MenuNavigationController.build`)
+            // plutôt que le vrai asset : évite tout `pump` supplémentaire pour
+            // laisser `menuConfigProvider` se résoudre avant que `DemoHomeScreen`
+            // (donc `EyeVoiceApp`-like gating) ne soit pompé.
+            menuConfigProvider.overrideWith((ref) => sampleMenuConfig),
           ],
           child: const MaterialApp(home: DemoHomeScreen()),
         ),
@@ -167,6 +184,11 @@ void main() {
             ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
             faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
             sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
+            // Config synchrone (voir la doc de `MenuNavigationController.build`)
+            // plutôt que le vrai asset : évite tout `pump` supplémentaire pour
+            // laisser `menuConfigProvider` se résoudre avant que `DemoHomeScreen`
+            // (donc `EyeVoiceApp`-like gating) ne soit pompé.
+            menuConfigProvider.overrideWith((ref) => sampleMenuConfig),
           ],
           child: const MaterialApp(home: DemoHomeScreen()),
         ),
@@ -213,6 +235,11 @@ void main() {
             ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
             faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
             sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
+            // Config synchrone (voir la doc de `MenuNavigationController.build`)
+            // plutôt que le vrai asset : évite tout `pump` supplémentaire pour
+            // laisser `menuConfigProvider` se résoudre avant que `DemoHomeScreen`
+            // (donc `EyeVoiceApp`-like gating) ne soit pompé.
+            menuConfigProvider.overrideWith((ref) => sampleMenuConfig),
           ],
           child: const MaterialApp(home: DemoHomeScreen()),
         ),

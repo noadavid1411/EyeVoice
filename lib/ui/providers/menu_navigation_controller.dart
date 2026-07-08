@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:eyevoice/data/menu_config_repository.dart';
 import 'package:eyevoice/data/settings_repository.dart';
 import 'package:eyevoice/domain/actions/action_resolver.dart';
 import 'package:eyevoice/domain/actions/action_result.dart';
 import 'package:eyevoice/domain/models/menu_item.dart';
 import 'package:eyevoice/domain/models/menu_screen.dart';
-import 'package:eyevoice/domain/models/sample_menu_config.dart';
 import 'package:eyevoice/services/tts_service.dart';
 import 'package:eyevoice/services/tts_settings.dart';
 
@@ -54,6 +54,16 @@ class MenuNavigationState {
   final SpokenPhrase? spokenPhrase;
   final ComingSoonEvent? comingSoon;
 
+  /// `homeScreenId` du [MenuConfig] réellement chargé (`menuConfigProvider`).
+  ///
+  /// Exposé ici plutôt que relu directement par la couche `ui` depuis
+  /// `menuConfigProvider` : [DemoHomeScreen] n'a besoin de connaître que
+  /// l'écran d'accueil *tel que résolu par ce contrôleur*, pas la
+  /// configuration entière — un seul point de vérité pour "quel est l'écran
+  /// affiché en ce moment" ([screen]) et "quel écran est celui d'accueil"
+  /// ([homeScreenId]).
+  final String homeScreenId;
+
   /// Item en attente de confirmation (section 17.2), non-`null` seulement
   /// quand [uiMode] vaut [UiMode.confirmation]. Voir [MenuItem.requiresConfirmation]
   /// et [MenuNavigationController.activate]/[MenuNavigationController.confirmPending]/
@@ -63,6 +73,7 @@ class MenuNavigationState {
   const MenuNavigationState({
     required this.screen,
     required this.uiMode,
+    required this.homeScreenId,
     this.spokenPhrase,
     this.comingSoon,
     this.pendingConfirmation,
@@ -82,6 +93,7 @@ class MenuNavigationState {
     return MenuNavigationState(
       screen: screen ?? this.screen,
       uiMode: uiMode ?? this.uiMode,
+      homeScreenId: homeScreenId,
       spokenPhrase: spokenPhrase ?? this.spokenPhrase,
       comingSoon: comingSoon ?? this.comingSoon,
       pendingConfirmation: clearPendingConfirmation
@@ -104,10 +116,31 @@ class MenuNavigationState {
 /// ou appui tactile en mode dégradé) et réagit à l'état exposé — elle
 /// n'interprète plus aucune chaîne d'action JSON elle-même.
 ///
-/// Utilise toujours `sampleMenuConfig` (Phase 1a) : le chargement d'un vrai
-/// `menu-config.json` depuis un fichier/asset reste hors périmètre de cette
-/// phase (TASKS.md, Phase 2 ne couvre que le branchement de l'
-/// `ActionResolver`, pas le chargement JSON réel).
+/// Construit sur le vrai `menu-config.json`, chargé via [menuConfigProvider]
+/// (`lib/data/menu_config_repository.dart`) — comblement de la réserve du
+/// critère 8 d'ACCEPTANCE_CHECKLIST.md.
+///
+/// [menuConfigProvider] est asynchrone (lecture d'asset) alors que
+/// [ActionResolver] a besoin d'un `MenuConfig` synchrone à la construction.
+/// Plutôt que de transformer ce contrôleur en `AsyncNotifier` — ce qui
+/// aurait propagé un `AsyncValue<MenuNavigationState>` jusqu'à la moindre
+/// lecture d'état dans toute la couche `ui` (`DemoHomeScreen`,
+/// `gazeTrackingPipelineProvider`, tous les tests existants) pour un
+/// provider qui n'est jamais censé rester en `loading`/`error` au-delà du
+/// tout premier écran — le chargement est géré une seule fois, en amont,
+/// au niveau racine de l'application : [EyeVoiceApp] (`lib/main.dart`)
+/// n'affiche [DemoHomeScreen] (et donc ne construit ce `Notifier`) qu'une
+/// fois `menuConfigProvider` résolu en `AsyncData`, via `.when(loading:,
+/// error:, data:)`. `ref.watch(menuConfigProvider).requireValue` ci-dessous
+/// est donc sûr : par construction, ce `build()` n'est jamais atteint tant
+/// que la config n'est pas chargée avec succès. Cette même garantie doit
+/// être reproduite par tout test qui construit ce contrôleur/`DemoHomeScreen`
+/// hors de [EyeVoiceApp] — voir `menuConfigProvider.overrideWith(...)` dans
+/// `test/ui/menu_navigation_controller_test.dart` et
+/// `test/ui/demo_home_screen_test.dart`, qui fournissent `sampleMenuConfig`
+/// de façon synchrone (voir la doc de [menuConfigProvider] : un
+/// `FutureOr<MenuConfig>` renvoyé de façon non-`Future` résout
+/// immédiatement, sans détour asynchrone, donc sans risque de flakiness).
 class MenuNavigationController extends Notifier<MenuNavigationState> {
   late final ActionResolver _resolver;
   int _speechSeq = 0;
@@ -115,7 +148,8 @@ class MenuNavigationController extends Notifier<MenuNavigationState> {
 
   @override
   MenuNavigationState build() {
-    _resolver = ActionResolver(config: sampleMenuConfig);
+    final config = ref.watch(menuConfigProvider).requireValue;
+    _resolver = ActionResolver(config: config);
     // Réglages de synthèse vocale (section 16, `lib/ui/screens/settings_screen.dart`)
     // : appliqués immédiatement au vrai `TtsService` dès qu'ils changent,
     // sans attendre la prochaine phrase prononcée. `ref.listen` (plutôt que
@@ -130,6 +164,7 @@ class MenuNavigationController extends Notifier<MenuNavigationState> {
     return MenuNavigationState(
       screen: _resolver.currentScreen,
       uiMode: UiMode.grid,
+      homeScreenId: config.homeScreenId,
     );
   }
 

@@ -49,6 +49,15 @@ void main() {
         child: const EyeVoiceApp(),
       ),
     );
+    // `menuConfigProvider` (`lib/data/menu_config_repository.dart`) lit le
+    // vrai asset `assets/menu-config.json` de façon asynchrone
+    // (`rootBundle.loadString`) : ce test volontairement ne le surcharge pas
+    // (contrairement à `test/ui/demo_home_screen_test.dart`), pour couvrir
+    // aussi le chargement réel de bout en bout. `EyeVoiceApp` affiche donc
+    // d'abord un écran de chargement le temps de cette lecture — un `pump`
+    // supplémentaire est nécessaire pour laisser l'asset se résoudre avant
+    // que l'accueil ne soit monté.
+    await tester.pump();
 
     expect(find.text('🩺 PHYSIQUE'), findsOneWidget);
     expect(find.text('💬 CONVERSATION'), findsOneWidget);

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:eyevoice/core/models/screen_zone.dart';
+import 'package:eyevoice/data/menu_config_repository.dart';
 import 'package:eyevoice/data/settings_repository.dart';
 import 'package:eyevoice/domain/models/menu_action.dart';
 import 'package:eyevoice/domain/models/menu_item.dart';
@@ -51,6 +52,13 @@ void main() {
       overrides: [
         ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
         sharedPreferencesProvider.overrideWithValue(prefs),
+        // Fournit `sampleMenuConfig` de façon synchrone plutôt que de
+        // dépendre du vrai asset `assets/menu-config.json` (couvert par
+        // `test/data/menu_config_repository_test.dart`) : un `FutureOr`
+        // renvoyé sans `Future` résout immédiatement (voir la doc de
+        // `MenuNavigationController.build`), donc `menuNavigationProvider`
+        // est utilisable sans aucun `pump`/`await` supplémentaire ici.
+        menuConfigProvider.overrideWith((ref) => sampleMenuConfig),
       ],
     );
     addTearDown(container.dispose);

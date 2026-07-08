@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'data/menu_config_repository.dart';
 import 'data/settings_repository.dart';
 import 'domain/models/app_settings.dart';
+import 'domain/models/menu_config_exception.dart';
 import 'eyetracking/detection/face_mesh_gaze_detector.dart';
 import 'ui/demo/demo_home_screen.dart';
 import 'ui/providers/gaze_tracking_providers.dart';
+import 'ui/theme/app_colors.dart';
+import 'ui/theme/app_text_styles.dart';
 import 'ui/theme/app_theme.dart';
 
 /// Bascule vers le vrai détecteur caméra ([FaceMeshGazeDetector]) au lieu du
@@ -29,9 +33,19 @@ const bool _useRealGazeDetector = bool.fromEnvironment(
 /// sur le vrai moteur de navigation (`ActionResolver` du domaine, via
 /// `lib/ui/providers/menu_navigation_controller.dart`) et le vrai
 /// `GazeTrackingPipeline` (via `lib/ui/providers/gaze_tracking_providers.dart`)
-/// — Phase 2, voir TASKS.md. La fixture de menu-config en mémoire
-/// (`lib/domain/models/sample_menu_config.dart`, Phase 1a) reste utilisée
-/// tant que le chargement d'un vrai `menu-config.json` n'est pas branché.
+/// — Phase 2, voir TASKS.md.
+///
+/// [DemoHomeScreen] n'est monté qu'une fois le vrai `menu-config.json`
+/// chargé avec succès depuis les assets (`menuConfigProvider`,
+/// `lib/data/menu_config_repository.dart` — comble la réserve du critère 8
+/// d'ACCEPTANCE_CHECKLIST.md, la fixture en mémoire
+/// `lib/domain/models/sample_menu_config.dart` restant réservée aux tests) :
+/// [EyeVoiceApp.build] observe `menuConfigProvider` et affiche un écran de
+/// chargement ([_MenuConfigLoadingScreen]) le temps de la lecture de
+/// l'asset (bref, l'asset est petit), ou un écran d'erreur clair
+/// ([_MenuConfigErrorScreen]) si le JSON est invalide
+/// (`MenuConfigParseException`/`MenuConfigValidationException`) plutôt que
+/// de laisser l'application planter silencieusement.
 ///
 /// `ProviderScope` reste câblé dès maintenant car Riverpod est la solution
 /// de gestion d'état verrouillée pour le projet (TASKS.md).
@@ -73,6 +87,7 @@ class EyeVoiceApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
+    final menuConfigAsync = ref.watch(menuConfigProvider);
 
     return MaterialApp(
       title: 'La Voix du Regard',
@@ -84,7 +99,94 @@ class EyeVoiceApp extends ConsumerWidget {
         ),
         child: child!,
       ),
-      home: const DemoHomeScreen(),
+      // `.when` plutôt qu'un simple `menuConfigAsync.value` : un
+      // `menu-config.json` invalide (`MenuConfigParseException`/
+      // `MenuConfigValidationException`, voir la doc de [MenuConfigRepository.load])
+      // doit produire un écran d'erreur explicite, jamais un crash silencieux
+      // ni un écran vide.
+      home: menuConfigAsync.when(
+        loading: () => const _MenuConfigLoadingScreen(),
+        error: (error, stackTrace) => _MenuConfigErrorScreen(error: error),
+        data: (_) => const DemoHomeScreen(),
+      ),
+    );
+  }
+}
+
+/// Écran affiché le temps du chargement de `menu-config.json`
+/// (`menuConfigProvider`), avant que [DemoHomeScreen] ne puisse être monté.
+///
+/// Bref en pratique (l'asset est petit), mais indispensable : sans lui,
+/// [EyeVoiceApp] afficherait un écran blanc/un flash le temps de la lecture
+/// asynchrone de l'asset.
+class _MenuConfigLoadingScreen extends StatelessWidget {
+  const _MenuConfigLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: CircularProgressIndicator(color: AppColors.selectionGlow),
+      ),
+    );
+  }
+}
+
+/// Écran affiché si `menu-config.json` n'a pas pu être chargé ou est
+/// invalide (`MenuConfigParseException`/`MenuConfigValidationException`,
+/// `lib/domain/models/menu_config_exception.dart` — propagées telles
+/// quelles par `menuConfigProvider`, voir sa doc).
+///
+/// Un `menu-config.json` structurant et invalide ne doit jamais faire
+/// démarrer l'application sur une configuration dégradée silencieuse
+/// (`lib/data/menu_config_repository.dart`) : ce cas doit donc rester
+/// visible et compréhensible, y compris pour un aidant/soignant non
+/// développeur qui aurait modifié le fichier (section 10.4).
+class _MenuConfigErrorScreen extends StatelessWidget {
+  final Object error;
+
+  const _MenuConfigErrorScreen({required this.error});
+
+  String get _message => switch (error) {
+        MenuConfigParseException(:final message) =>
+          'Le fichier de configuration des menus est mal formé.\n\n$message',
+        MenuConfigValidationException(:final errors) =>
+          'Le fichier de configuration des menus contient des erreurs :\n\n'
+              '${errors.map((e) => '• $e').join('\n')}',
+        _ => 'Une erreur inattendue est survenue pendant le chargement de '
+            'la configuration des menus.\n\n$error',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: AppColors.danger, size: 64),
+                const SizedBox(height: 24),
+                Text(
+                  'Impossible de démarrer l\'application',
+                  style: AppTextStyles.screenTitle,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _message,
+                  style: AppTextStyles.caption,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
