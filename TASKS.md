@@ -42,8 +42,23 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 ## Phase 3 — Complétude MVP
 
 - [ ] Confirmation des actions sensibles (quitter, reset, suppression phrase)
+      — fondation domaine posée (domain-logic-engineer) : `MenuItem.requiresConfirmation`
+      (`lib/domain/models/menu_item.dart`), champ JSON optionnel `requiresConfirmation`
+      parsé/validé (défaut `false`). `ActionResolver` reste volontairement inchangé
+      (pure fonction de résolution) — c'est à l'UI de lire ce flag avant d'appeler
+      `resolve()` et d'afficher le dialogue de confirmation. Reste à faire par
+      flutter-ui-engineer : les dialogues de confirmation eux-mêmes (quitter, reset,
+      suppression phrase) et leur câblage sur ce flag.
 - [ ] Mode dégradé tactile/manuel
 - [ ] Réglages configurables (dwell time, sensibilité, contraste, voix)
+      — fondation domaine posée (domain-logic-engineer) : modèle unifié `AppSettings`
+      (`lib/domain/models/app_settings.dart`, compose `EyeTrackingSettings` + `TtsSettings`
+      existants + nouveaux `AppFontSize`/`AppContrastLevel`/`HomeMode`) et persistance
+      `SettingsRepository` via `shared_preferences` (`lib/data/settings_repository.dart`),
+      exposée en Riverpod via `settingsProvider`/`SettingsController` (lecture réactive +
+      `update()`/`resetToDefaults()`). `sharedPreferencesProvider` doit être surchargé dans
+      `main()` (voir sa doc) — pas encore fait, hors périmètre domaine. Reste à faire par
+      flutter-ui-engineer : l'écran de réglages lui-même et le câblage `main.dart`.
 
 ## Phase 4 — Qualité & documentation
 

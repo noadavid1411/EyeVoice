@@ -32,6 +32,32 @@ class MenuItem {
   /// (dérivé de `target` au parsing, voir [appModeFromTarget]).
   final AppMode? mode;
 
+  /// Marque cet item comme une "action sensible" nécessitant une
+  /// confirmation avant exécution (section 17.2 : quitter l'application,
+  /// réinitialiser les réglages, supprimer une phrase personnalisée).
+  ///
+  /// **Contrat avec la couche `ui`** : ce champ est une simple donnée
+  /// exposée par le domaine, jamais interprétée ici. C'est à la couche `ui`
+  /// de lire `item.requiresConfirmation` **avant** d'appeler
+  /// `ActionResolver.resolve(item)` et, si `true`, d'afficher un dialogue de
+  /// confirmation (ex. "Oui, confirmer" / "Non, annuler") ; ce n'est
+  /// qu'après validation explicite du patient/aidant que l'UI doit appeler
+  /// `resolve(item)` pour obtenir l'[ActionResult] réel. Si l'utilisateur
+  /// annule, l'UI n'appelle simplement jamais `resolve` — inutile de
+  /// modéliser un `CancelAction` particulier pour ce cas, [CancelAction]
+  /// existe déjà pour l'action JSON `cancel` elle-même.
+  ///
+  /// Volontairement **non pris en compte par `ActionResolver`** : ce
+  /// dernier reste une fonction de résolution pure (item + état de
+  /// navigation → résultat), sans notion de dialogue ni d'attente
+  /// utilisateur — voir la doc de `ActionResolver`.
+  ///
+  /// Défaut `false` : la plupart des items (navigation, phrases) ne sont pas
+  /// sensibles. Champ JSON optionnel `"requiresConfirmation": true/false`
+  /// dans `menu-config.json` (extension de la section 11.2, non présente
+  /// dans l'exemple de référence mais rétrocompatible : absent ⇒ `false`).
+  final bool requiresConfirmation;
+
   const MenuItem({
     required this.zone,
     required this.label,
@@ -39,6 +65,7 @@ class MenuItem {
     this.target,
     this.text,
     this.mode,
+    this.requiresConfirmation = false,
   }) : assert(
           action != MenuAction.openMode || mode != null,
           "Un item 'openMode' doit avoir un champ 'mode' résolu (utiliser "
@@ -89,6 +116,13 @@ class MenuItem {
       mode = appModeFromTarget(targetRaw as String);
     }
 
+    final requiresConfirmationRaw = json['requiresConfirmation'];
+    if (requiresConfirmationRaw != null && requiresConfirmationRaw is! bool) {
+      throw const MenuConfigParseException(
+        "Champ 'requiresConfirmation' non booléen",
+      );
+    }
+
     return MenuItem(
       zone: zone,
       label: labelRaw,
@@ -96,13 +130,15 @@ class MenuItem {
       target: targetRaw as String?,
       text: textRaw as String?,
       mode: mode,
+      requiresConfirmation: requiresConfirmationRaw as bool? ?? false,
     );
   }
 
   @override
   String toString() =>
       'MenuItem(zone: $zone, label: $label, action: $action, '
-      'target: $target, text: $text, mode: $mode)';
+      'target: $target, text: $text, mode: $mode, '
+      'requiresConfirmation: $requiresConfirmation)';
 }
 
 /// Parse la chaîne JSON `zone` (section 13.3).
