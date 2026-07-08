@@ -13,10 +13,10 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 
 ## Phase 1a — Moteur de données (domain-logic-engineer)
 
-- [ ] Modèles Dart typés pour `menu-config.json`
-- [ ] Validateur de schéma (rejette un écran à plus de 4 choix)
-- [ ] `ActionResolver` (navigate/speak/back/home/openMode/settings/cancel) sur données mockées
-- [ ] Historique de navigation (pile back/home)
+- [x] Modèles Dart typés pour `menu-config.json` — `lib/domain/models/menu_config.dart`, `menu_screen.dart`, `menu_item.dart`, `menu_action.dart`, `menu_config_exception.dart`
+- [x] Validateur de schéma (rejette un écran à plus de 4 choix) — `lib/domain/models/menu_config_validator.dart` (`validateMenuConfig`, `loadMenuConfig`)
+- [x] `ActionResolver` (navigate/speak/back/home/openMode/settings/cancel) sur données mockées — `lib/domain/actions/action_resolver.dart` (+ fixture `lib/domain/models/sample_menu_config.dart`)
+- [x] Historique de navigation (pile back/home) — `lib/domain/actions/navigation_history.dart`
 
 ## Phase 1b — Eye-tracking (eye-tracking-engineer)
 
