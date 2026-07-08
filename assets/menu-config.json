@@ -1,0 +1,218 @@
+{
+  "appName": "La Voix du Regard",
+  "defaultDwellTimeMs": 1300,
+  "homeScreenId": "home",
+  "screens": [
+    {
+      "id": "home",
+      "type": "grid-4",
+      "title": "Accueil",
+      "items": [
+        {
+          "zone": "top-left",
+          "label": "🩺 PHYSIQUE",
+          "action": "navigate",
+          "target": "physical"
+        },
+        {
+          "zone": "top-right",
+          "label": "💬 CONVERSATION",
+          "action": "navigate",
+          "target": "conversation"
+        },
+        {
+          "zone": "bottom-left",
+          "label": "❤️ ÉMOTIONS / ÉTAT",
+          "action": "navigate",
+          "target": "emotions"
+        },
+        {
+          "zone": "bottom-right",
+          "label": "⚙️ OPTIONS",
+          "action": "navigate",
+          "target": "options"
+        }
+      ]
+    },
+    {
+      "id": "physical",
+      "type": "grid-4",
+      "title": "Physique",
+      "items": [
+        {
+          "zone": "top-left",
+          "label": "J’ai soif / faim",
+          "action": "speak",
+          "text": "J’ai soif ou faim."
+        },
+        {
+          "zone": "top-right",
+          "label": "J’ai mal",
+          "action": "navigate",
+          "target": "pain"
+        },
+        {
+          "zone": "bottom-left",
+          "label": "Changer de position",
+          "action": "navigate",
+          "target": "position",
+          "requiresConfirmation": true
+        },
+        {
+          "zone": "bottom-right",
+          "label": "Retour",
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "pain",
+      "type": "grid-4",
+      "title": "J’ai mal",
+      "items": [
+        {
+          "zone": "top-left",
+          "label": "Tête",
+          "action": "speak",
+          "text": "J’ai mal à la tête."
+        },
+        {
+          "zone": "top-right",
+          "label": "Ventre / corps",
+          "action": "speak",
+          "text": "J’ai mal au ventre ou au corps."
+        },
+        {
+          "zone": "bottom-left",
+          "label": "Gorge / respiration",
+          "action": "speak",
+          "text": "J’ai mal à la gorge ou pour respirer."
+        },
+        {
+          "zone": "bottom-right",
+          "label": "Retour",
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "position",
+      "type": "grid-4",
+      "title": "Position / inconfort",
+      "items": [
+        {
+          "zone": "top-left",
+          "label": "Me redresser",
+          "action": "speak",
+          "text": "Je veux me redresser."
+        },
+        {
+          "zone": "top-right",
+          "label": "Me tourner",
+          "action": "speak",
+          "text": "Je veux me tourner."
+        },
+        {
+          "zone": "bottom-left",
+          "label": "Je suis mal installé",
+          "action": "speak",
+          "text": "Je suis mal installé."
+        },
+        {
+          "zone": "bottom-right",
+          "label": "Retour",
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "conversation",
+      "type": "grid-4",
+      "title": "Conversation",
+      "items": [
+        {
+          "zone": "top-left",
+          "label": "Je veux savoir...",
+          "action": "speak",
+          "text": "Je veux savoir quelque chose."
+        },
+        {
+          "zone": "top-right",
+          "label": "Dis-moi...",
+          "action": "speak",
+          "text": "Dis-moi quelque chose."
+        },
+        {
+          "zone": "bottom-left",
+          "label": "Mode expert",
+          "action": "openMode",
+          "target": "expert"
+        },
+        {
+          "zone": "bottom-right",
+          "label": "Retour",
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "emotions",
+      "type": "grid-4",
+      "title": "Émotions / État",
+      "items": [
+        {
+          "zone": "top-left",
+          "label": "Merci / Je t’aime",
+          "action": "speak",
+          "text": "Merci, je t’aime."
+        },
+        {
+          "zone": "top-right",
+          "label": "Fatigué / envie de dormir",
+          "action": "speak",
+          "text": "Je suis fatigué, j’ai envie de dormir."
+        },
+        {
+          "zone": "bottom-left",
+          "label": "Reste avec moi",
+          "action": "speak",
+          "text": "Reste avec moi, ne t’en va pas."
+        },
+        {
+          "zone": "bottom-right",
+          "label": "Retour",
+          "action": "back"
+        }
+      ]
+    },
+    {
+      "id": "options",
+      "type": "grid-4",
+      "title": "Options",
+      "items": [
+        {
+          "zone": "top-left",
+          "label": "Mode Oui / Non",
+          "action": "openMode",
+          "target": "yes-no"
+        },
+        {
+          "zone": "top-right",
+          "label": "Mode expert",
+          "action": "openMode",
+          "target": "expert"
+        },
+        {
+          "zone": "bottom-left",
+          "label": "Réglages",
+          "action": "settings"
+        },
+        {
+          "zone": "bottom-right",
+          "label": "Retour",
+          "action": "back"
+        }
+      ]
+    }
+  ]
+}
