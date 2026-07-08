@@ -18,6 +18,12 @@ Suivi d'avancement par phase : [`TASKS.md`](TASKS.md).
 - [`docs/guide-aidant-soignant.md`](docs/guide-aidant-soignant.md) — guide
   de personnalisation non technique pour l'aidant/le soignant (réglages :
   dwell time, sensibilité, contraste, voix...).
+- [`docs/deploiement-ios.md`](docs/deploiement-ios.md) — build et options de
+  distribution iOS (App Store, TestFlight, Enterprise, MDM) ; l'app n'a
+  jamais encore été buildée pour iOS (développement sous Windows).
+- [`docs/validation-materielle.md`](docs/validation-materielle.md) — plan
+  de validation de l'eye-tracking sur appareil physique réel (Android/iOS),
+  à dérouler dès qu'un appareil est disponible.
 
 ## Prérequis
 

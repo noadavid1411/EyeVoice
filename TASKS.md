@@ -116,3 +116,6 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 - [ ] Mode expert par balayage temporel + prédiction de mots
 - [ ] Personnalisation des phrases/menus dans l'application
 - [ ] Profils patients, export/import de configuration, calibration personnalisée
+- [ ] Build iOS réel + validation eye-tracking sur appareil physique — guides
+      prêts (`docs/deploiement-ios.md`, `docs/validation-materielle.md`),
+      exécution bloquée en l'état par l'absence de Mac/appareil physique
