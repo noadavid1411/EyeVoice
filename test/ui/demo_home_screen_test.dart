@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:eyevoice/data/settings_repository.dart';
 import 'package:eyevoice/eyetracking/detection/face_gaze_detector.dart';
 import 'package:eyevoice/eyetracking/models/raw_gaze_sample.dart';
 import 'package:eyevoice/services/tts_service.dart';
@@ -53,6 +55,17 @@ class _FakeTtsEngine implements TtsEngine {
   Future<void> stop() async {}
 }
 
+/// Fournit une [SharedPreferences] mockée en mémoire (`setMockInitialValues`),
+/// pour surcharger `sharedPreferencesProvider` — requis dès que
+/// [DemoHomeScreen] est pompé, car `gazeTrackingPipelineProvider`
+/// (`lib/ui/providers/gaze_tracking_providers.dart`) et
+/// `MenuNavigationController` (synthèse vocale, Phase 3) lisent désormais
+/// `settingsProvider` (`lib/data/settings_repository.dart`).
+Future<SharedPreferences> _fakePrefs() async {
+  SharedPreferences.setMockInitialValues({});
+  return SharedPreferences.getInstance();
+}
+
 void main() {
   testWidgets(
     'appui tactile (mode dégradé) déclenche une navigation effective via le vrai ActionResolver',
@@ -63,6 +76,7 @@ void main() {
           overrides: [
             ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
             faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
+            sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
           ],
           child: const MaterialApp(home: DemoHomeScreen()),
         ),
@@ -90,6 +104,7 @@ void main() {
           overrides: [
             ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
             faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
+            sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
           ],
           child: const MaterialApp(home: DemoHomeScreen()),
         ),
@@ -115,6 +130,7 @@ void main() {
           overrides: [
             ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
             faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
+            sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
           ],
           child: const MaterialApp(home: DemoHomeScreen()),
         ),
@@ -132,6 +148,84 @@ void main() {
       await tester.tap(find.text('OUI'));
       await tester.pump();
       expect(engine.spokenTexts, ['Oui.']);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pump();
+
+      expect(find.text('Options'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'un item requiresConfirmation ouvre ConfirmationDialog ; "Non" annule sans naviguer, '
+    '"Oui" exécute réellement l\'action (section 17.2)',
+    (tester) async {
+      final engine = _FakeTtsEngine();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
+            faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
+            sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
+          ],
+          child: const MaterialApp(home: DemoHomeScreen()),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('🩺 PHYSIQUE'));
+      await tester.pump();
+      expect(find.text('Changer de position'), findsOneWidget);
+
+      await tester.tap(find.text('Changer de position'));
+      await tester.pump();
+
+      // Le dialogue de confirmation s'affiche, l'ActionResolver n'a pas
+      // encore été appelé : toujours sur l'écran 'physical'.
+      expect(find.textContaining('Confirmer'), findsOneWidget);
+      expect(find.text('OUI'), findsOneWidget);
+      expect(find.text('NON'), findsOneWidget);
+
+      await tester.tap(find.text('NON'));
+      await tester.pump();
+
+      // Annulé : aucune navigation n'a eu lieu.
+      expect(find.text('Changer de position'), findsOneWidget);
+      expect(find.text('Position / inconfort'), findsNothing);
+
+      await tester.tap(find.text('Changer de position'));
+      await tester.pump();
+      await tester.tap(find.text('OUI'));
+      await tester.pump();
+
+      // Confirmé : l'action est réellement résolue, on navigue vers 'position'.
+      expect(find.text('Position / inconfort'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    '"Réglages" ouvre le vrai SettingsScreen, et le retour revient à l\'écran Options',
+    (tester) async {
+      final engine = _FakeTtsEngine();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
+            faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
+            sharedPreferencesProvider.overrideWithValue(await _fakePrefs()),
+          ],
+          child: const MaterialApp(home: DemoHomeScreen()),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('⚙️ OPTIONS'));
+      await tester.pump();
+      await tester.tap(find.text('Réglages'));
+      await tester.pump();
+
+      expect(find.text('Réglages'), findsOneWidget);
+      expect(find.textContaining('Temps de fixation'), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.arrow_back));
       await tester.pump();

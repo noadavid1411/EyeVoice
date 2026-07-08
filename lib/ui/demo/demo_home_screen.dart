@@ -9,9 +9,11 @@ import '../../eyetracking/models/screen_layout_mode.dart';
 import '../providers/gaze_tracking_providers.dart';
 import '../providers/menu_navigation_controller.dart';
 import '../screens/grid4_screen.dart';
+import '../screens/settings_screen.dart';
 import '../screens/yes_no_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../widgets/confirmation_dialog.dart';
 
 /// Écran d'accueil réel de l'application.
 ///
@@ -30,6 +32,12 @@ import '../theme/app_text_styles.dart';
 /// Toujours construit sur `sampleMenuConfig` (fixture en mémoire de la
 /// Phase 1a) : le chargement d'un vrai fichier `menu-config.json` reste
 /// hors périmètre de la Phase 2 (TASKS.md).
+///
+/// Phase 3 (TASKS.md) : affiche aussi [ConfirmationDialog] tant que
+/// `uiMode == UiMode.confirmation` (section 17.2, actions sensibles) et
+/// [SettingsScreen] tant que `uiMode == UiMode.settings` (section 16,
+/// réglages configurables) — deux écrans dédiés côté `ui`, au même titre
+/// que [YesNoScreen], jamais décrits dans `menu-config.json`.
 class DemoHomeScreen extends ConsumerWidget {
   const DemoHomeScreen({super.key});
 
@@ -73,6 +81,24 @@ class DemoHomeScreen extends ConsumerWidget {
         onNo: controller.answerNo,
         onExit: controller.exitYesNo,
       );
+    }
+
+    // Confirmation d'une action sensible (section 17.2) : `resolve()` n'a
+    // volontairement pas encore été appelé pour `pendingConfirmation` (voir
+    // `MenuNavigationController.activate`) — seul un "Oui" explicite du
+    // patient/aidant déclenche réellement l'action.
+    final pending = navState.pendingConfirmation;
+    if (navState.uiMode == UiMode.confirmation && pending != null) {
+      return ConfirmationDialog(
+        message: 'Confirmer : ${pending.label} ?',
+        gazeState: gazeState,
+        onConfirm: controller.confirmPending,
+        onCancel: controller.cancelPending,
+      );
+    }
+
+    if (navState.uiMode == UiMode.settings) {
+      return SettingsScreen(onClose: controller.exitSettings);
     }
 
     final screen = navState.screen;

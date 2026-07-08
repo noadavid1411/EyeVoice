@@ -4,6 +4,7 @@ import '../../core/models/screen_zone.dart';
 import '../../eyetracking/models/gaze_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../widgets/degraded_signal_banner.dart';
 import '../widgets/zone_button.dart';
 
 /// Écran du Niveau 1 — Mode Sécurité (SPECIFICATIONS_FONCTIONNELLES.md
@@ -21,6 +22,14 @@ class YesNoScreen extends StatefulWidget {
   /// données, pas de l'UI).
   final String? question;
 
+  /// Couleur du texte de [question]. Par défaut le jaune clair habituel des
+  /// phrases mises en avant ([AppTextStyles.spokenPhrase]) ; surchargé en
+  /// rouge d'alerte par `ConfirmationDialog`
+  /// (`lib/ui/widgets/confirmation_dialog.dart`, section 17.2) pour
+  /// distinguer visuellement une confirmation d'action sensible d'une
+  /// simple question Oui/Non.
+  final Color questionColor;
+
   /// État de regard courant, déjà résolu par la couche `eyetracking`.
   final GazeState gazeState;
 
@@ -34,6 +43,7 @@ class YesNoScreen extends StatefulWidget {
   const YesNoScreen({
     super.key,
     this.question,
+    this.questionColor = AppColors.textAccent,
     this.gazeState = const GazeState.idle(),
     this.onYes,
     this.onNo,
@@ -74,19 +84,20 @@ class _YesNoScreenState extends State<YesNoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
             Column(
               children: [
+                DegradedSignalBanner(status: widget.gazeState.signalStatus),
                 if (widget.question != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                     child: Text(
                       widget.question!,
                       textAlign: TextAlign.center,
-                      style: AppTextStyles.spokenPhrase,
+                      style: AppTextStyles.spokenPhrase.copyWith(color: widget.questionColor),
                     ),
                   ),
                 Expanded(

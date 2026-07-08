@@ -24,6 +24,18 @@ abstract final class AppColors {
   /// fond noir sans introduire de couleur distrayante).
   static const Color surface = Color(0xFF17171B);
 
+  /// Fond principal pour [AppContrastLevel.standard] (section 10.4/16,
+  /// réglage "Thème"/contraste) : gris très sombre plutôt que noir pur.
+  /// Le texte, les couleurs sémantiques (OUI/NON/navigation) et les
+  /// bordures restent identiques quel que soit le niveau de contraste — seul
+  /// l'écart fond/surface est réduit, jamais au point de retomber sous les
+  /// recommandations de la section 15.1 ("fond sombre : noir ou gris très
+  /// foncé").
+  static const Color backgroundStandard = Color(0xFF121214);
+
+  /// Surface par défaut assortie à [backgroundStandard].
+  static const Color surfaceStandard = Color(0xFF1D1D22);
+
   /// Variante légèrement plus claire, utilisée pour les états
   /// pressés/survolés (mode dégradé tactile, section 17.3).
   static const Color surfaceHighlight = Color(0xFF232329);

@@ -6,6 +6,7 @@ import '../../eyetracking/models/gaze_state.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/dead_zone_marker.dart';
+import '../widgets/degraded_signal_banner.dart';
 import '../widgets/zone_button.dart';
 
 /// Un choix affiché dans un quadrant de [Grid4Screen].
@@ -161,12 +162,13 @@ class _Grid4ScreenState extends State<Grid4Screen> {
     );
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
             Column(
               children: [
+                DegradedSignalBanner(status: widget.gazeState.signalStatus),
                 if (widget.title != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),

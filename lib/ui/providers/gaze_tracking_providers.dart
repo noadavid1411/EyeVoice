@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:eyevoice/data/settings_repository.dart';
 import 'package:eyevoice/eyetracking/detection/face_gaze_detector.dart';
 import 'package:eyevoice/eyetracking/gaze_tracking_pipeline.dart';
+import 'package:eyevoice/eyetracking/models/eyetracking_settings.dart';
 import 'package:eyevoice/eyetracking/models/gaze_state.dart';
 import 'package:eyevoice/eyetracking/models/screen_layout_mode.dart';
 
@@ -42,10 +44,26 @@ final faceGazeDetectorProvider = Provider<FaceGazeDetector>((ref) {
 /// lève jamais d'exception (voir sa doc) même si la caméra/le détecteur
 /// réel échoue à démarrer — le flux [gazeStateProvider] reçoit alors un
 /// `GazeState.idle()` plutôt que de bloquer l'UI.
+///
+/// Câblé sur [settingsProvider] (Phase 3, réglages configurables — section
+/// 16) : la valeur initiale de [EyeTrackingSettings] (dwell time, zone
+/// morte, sensibilité) vient des réglages persistés/par défaut de
+/// l'utilisateur, et tout changement ultérieur (écran de réglages,
+/// `lib/ui/screens/settings_screen.dart`) est répercuté à chaud via
+/// `GazeTrackingPipeline.updateSettings` — sans jamais recréer le pipeline
+/// (qui redémarrerait inutilement la caméra/le détecteur). `ref.listen` est
+/// utilisé ici plutôt que `ref.watch` précisément pour ça : seul un
+/// changement de valeur déclenche une mise à jour incrémentale, la lecture
+/// initiale ne recrée jamais ce provider.
 final gazeTrackingPipelineProvider = Provider<GazeTrackingPipeline>((ref) {
   final detector = ref.watch(faceGazeDetectorProvider);
-  final pipeline = GazeTrackingPipeline(detector: detector);
+  final initialSettings = ref.read(settingsProvider).eyeTracking;
+  final pipeline = GazeTrackingPipeline(detector: detector, settings: initialSettings);
   pipeline.start();
+  ref.listen<EyeTrackingSettings>(
+    settingsProvider.select((s) => s.eyeTracking),
+    (previous, next) => pipeline.updateSettings(next),
+  );
   ref.onDispose(pipeline.dispose);
   return pipeline;
 });
@@ -66,5 +84,14 @@ final gazeStateProvider = StreamProvider<GazeState>((ref) {
 /// traduction (voir la doc de [ScreenLayoutMode]).
 final screenLayoutModeProvider = Provider<ScreenLayoutMode>((ref) {
   final uiMode = ref.watch(menuNavigationProvider.select((s) => s.uiMode));
-  return uiMode == UiMode.yesNo ? ScreenLayoutMode.yesNo : ScreenLayoutMode.quadrant;
+  // Le dialogue de confirmation des actions sensibles (section 17.2,
+  // `lib/ui/widgets/confirmation_dialog.dart`) réutilise le layout à 2 zones
+  // du mode Oui/Non — même disposition gauche/droite à interpréter côté
+  // `eyetracking`. L'écran de réglages ([UiMode.settings]) est une liste
+  // défilante sans zones de regard : le mode importe peu tant qu'aucun
+  // `ZoneButton` n'y est affiché, `quadrant` reste donc un défaut neutre.
+  return switch (uiMode) {
+    UiMode.yesNo || UiMode.confirmation => ScreenLayoutMode.yesNo,
+    UiMode.grid || UiMode.settings => ScreenLayoutMode.quadrant,
+  };
 });

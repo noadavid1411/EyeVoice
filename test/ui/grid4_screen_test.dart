@@ -120,4 +120,47 @@ void main() {
 
     expect(deadZoneTapped, isFalse);
   });
+
+  testWidgets(
+    'affiche une bannière de mode dégradé quand le signal est perdu (section 17.3)',
+    (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          Grid4Screen(
+            items: fourItems(),
+            gazeState: const GazeState(
+              zone: null,
+              dwellProgress: 0.0,
+              confidence: 0.0,
+              signalStatus: GazeSignalStatus.lost,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.textContaining('touchez l’écran'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'n\'affiche aucune bannière quand le signal est normal',
+    (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          Grid4Screen(
+            items: fourItems(),
+            gazeState: const GazeState(
+              zone: null,
+              dwellProgress: 0.0,
+              confidence: 1.0,
+              signalStatus: GazeSignalStatus.ok,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.touch_app), findsNothing);
+      expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
+    },
+  );
 }

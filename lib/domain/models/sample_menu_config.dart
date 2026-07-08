@@ -74,6 +74,17 @@ final MenuConfig sampleMenuConfig = MenuConfig(
           label: 'Changer de position',
           action: MenuAction.navigate,
           target: 'position',
+          // Ajustement mineur Phase 3 (flutter-ui-engineer) : démonstration
+          // concrète de `MenuItem.requiresConfirmation` (section 17.2). Un
+          // changement de position engage physiquement un patient alité —
+          // un candidat raisonnable pour "confirmer avant d'agir" parmi les
+          // items déjà présents dans ce fixture (aucun écran n'a de marge
+          // pour un 5ᵉ item dédié "quitter"/"réinitialiser", la règle des 4
+          // choix — section 4.1 — étant déjà atteinte partout). Label,
+          // action et cible restent inchangés : seul le flag est ajouté,
+          // lu par la couche `ui` (`MenuNavigationController.activate`)
+          // avant tout appel à `ActionResolver.resolve`.
+          requiresConfirmation: true,
         ),
         MenuItem(
           zone: ScreenZone.bottomRight,

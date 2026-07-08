@@ -1,19 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:eyevoice/data/settings_repository.dart';
 import 'package:eyevoice/domain/actions/action_resolver.dart';
 import 'package:eyevoice/domain/actions/action_result.dart';
 import 'package:eyevoice/domain/models/menu_item.dart';
 import 'package:eyevoice/domain/models/menu_screen.dart';
 import 'package:eyevoice/domain/models/sample_menu_config.dart';
 import 'package:eyevoice/services/tts_service.dart';
+import 'package:eyevoice/services/tts_settings.dart';
 
 /// Mode d'affichage courant, côté `ui`, résultant de la résolution des
 /// actions par le vrai [ActionResolver].
 ///
 /// Distinct des écrans `grid-4` de `menu-config.json` : [UiMode.yesNo] est
 /// un mode dédié ouvert via l'action `openMode` (section 5), pas un
-/// `MenuScreen` de la configuration.
-enum UiMode { grid, yesNo }
+/// `MenuScreen` de la configuration. [UiMode.confirmation] (section 17.2) et
+/// [UiMode.settings] (section 16) suivent le même principe : ce sont des
+/// écrans dédiés côté `ui`, jamais décrits dans `menu-config.json`.
+enum UiMode { grid, yesNo, confirmation, settings }
 
 /// Événement transitoire "une phrase vient d'être transmise au TTS".
 ///
@@ -50,24 +54,39 @@ class MenuNavigationState {
   final SpokenPhrase? spokenPhrase;
   final ComingSoonEvent? comingSoon;
 
+  /// Item en attente de confirmation (section 17.2), non-`null` seulement
+  /// quand [uiMode] vaut [UiMode.confirmation]. Voir [MenuItem.requiresConfirmation]
+  /// et [MenuNavigationController.activate]/[MenuNavigationController.confirmPending]/
+  /// [MenuNavigationController.cancelPending].
+  final MenuItem? pendingConfirmation;
+
   const MenuNavigationState({
     required this.screen,
     required this.uiMode,
     this.spokenPhrase,
     this.comingSoon,
+    this.pendingConfirmation,
   });
 
+  /// [clearPendingConfirmation] permet explicitement de ramener
+  /// [pendingConfirmation] à `null` (le pattern `pendingConfirmation ?? this.pendingConfirmation`
+  /// seul ne le permettrait jamais une fois posé).
   MenuNavigationState copyWith({
     MenuScreen? screen,
     UiMode? uiMode,
     SpokenPhrase? spokenPhrase,
     ComingSoonEvent? comingSoon,
+    MenuItem? pendingConfirmation,
+    bool clearPendingConfirmation = false,
   }) {
     return MenuNavigationState(
       screen: screen ?? this.screen,
       uiMode: uiMode ?? this.uiMode,
       spokenPhrase: spokenPhrase ?? this.spokenPhrase,
       comingSoon: comingSoon ?? this.comingSoon,
+      pendingConfirmation: clearPendingConfirmation
+          ? null
+          : (pendingConfirmation ?? this.pendingConfirmation),
     );
   }
 }
@@ -97,10 +116,68 @@ class MenuNavigationController extends Notifier<MenuNavigationState> {
   @override
   MenuNavigationState build() {
     _resolver = ActionResolver(config: sampleMenuConfig);
+    // Réglages de synthèse vocale (section 16, `lib/ui/screens/settings_screen.dart`)
+    // : appliqués immédiatement au vrai `TtsService` dès qu'ils changent,
+    // sans attendre la prochaine phrase prononcée. `ref.listen` (plutôt que
+    // `ref.watch`) car ce provider n'a pas besoin de se reconstruire quand
+    // les réglages changent — seul le service TTS doit être mis à jour, à
+    // la même échelle de durée de vie que le pipeline eye-tracking (voir
+    // `gazeTrackingPipelineProvider`, `lib/ui/providers/gaze_tracking_providers.dart`).
+    ref.listen<TtsSettings>(
+      settingsProvider.select((s) => s.tts),
+      (previous, next) => ref.read(ttsServiceProvider).updateSettings(next),
+    );
     return MenuNavigationState(
       screen: _resolver.currentScreen,
       uiMode: UiMode.grid,
     );
+  }
+
+  /// Point d'entrée de la couche `ui` pour activer [item] (dwell time
+  /// atteint ou appui tactile en mode dégradé).
+  ///
+  /// Lit `item.requiresConfirmation` **avant** toute résolution (section
+  /// 17.2 : quitter l'application, réinitialiser les réglages, supprimer une
+  /// phrase personnalisée) — voir la doc de [MenuItem.requiresConfirmation].
+  /// Si `true`, [item] est mémorisé dans `state.pendingConfirmation` et
+  /// [uiMode] bascule sur [UiMode.confirmation] : c'est
+  /// `lib/ui/widgets/confirmation_dialog.dart` (affiché par la couche `ui`
+  /// tant que ce mode est actif) qui appelle ensuite [confirmPending] ou
+  /// [cancelPending] selon le choix du patient/aidant. [resolve] n'est donc
+  /// **jamais** appelé pour un item sensible avant confirmation explicite.
+  Future<void> activate(MenuItem item) async {
+    if (item.requiresConfirmation) {
+      state = state.copyWith(uiMode: UiMode.confirmation, pendingConfirmation: item);
+      return;
+    }
+    await _resolveAndApply(item);
+  }
+
+  /// Confirme l'item actuellement en attente (`state.pendingConfirmation`,
+  /// posé par [activate]) et l'exécute réellement via [_resolveAndApply].
+  /// Ne fait rien si aucune confirmation n'est en attente (double-appel,
+  /// ex. double frappe tactile).
+  Future<void> confirmPending() async {
+    final item = state.pendingConfirmation;
+    if (item == null) return;
+    state = state.copyWith(uiMode: UiMode.grid, clearPendingConfirmation: true);
+    await _resolveAndApply(item);
+  }
+
+  /// Annule l'item actuellement en attente : conformément au contrat de
+  /// [MenuItem.requiresConfirmation], `resolve` n'est jamais appelé dans ce
+  /// cas — on revient simplement à l'écran grid-4 courant sans aucun effet
+  /// de navigation ni d'action.
+  void cancelPending() {
+    state = state.copyWith(uiMode: UiMode.grid, clearPendingConfirmation: true);
+  }
+
+  /// Quitte l'écran de réglages ([UiMode.settings], section 16), ouvert via
+  /// l'action `settings`/`openMode(settings)`. Même logique qu'[exitYesNo] :
+  /// aucune pile de navigation à dépiler, on retrouve directement le dernier
+  /// écran grid-4 connu.
+  void exitSettings() {
+    state = state.copyWith(uiMode: UiMode.grid);
   }
 
   /// Résout [item] via le vrai [ActionResolver] et réagit selon le type
@@ -112,7 +189,11 @@ class MenuNavigationController extends Notifier<MenuNavigationState> {
   /// vocale de façon déterministe ; la couche `ui` (callbacks `onActivated`
   /// synchrones des boutons de zone) n'a pas à l'attendre — parler ne doit
   /// jamais bloquer l'affichage ou la navigation (section 14.1).
-  Future<void> activate(MenuItem item) async {
+  ///
+  /// Appelé directement par [activate] pour un item non sensible, ou par
+  /// [confirmPending] une fois la confirmation explicite obtenue pour un
+  /// item sensible — jamais par [cancelPending].
+  Future<void> _resolveAndApply(MenuItem item) async {
     final result = _resolver.resolve(item);
     switch (result) {
       case NavigateAction():
@@ -128,21 +209,20 @@ class MenuNavigationController extends Notifier<MenuNavigationState> {
         switch (mode) {
           case AppMode.yesNo:
             state = state.copyWith(uiMode: UiMode.yesNo);
-          case AppMode.expert:
           case AppMode.settings:
-            // Mode expert et réglages : hors périmètre MVP de cette phase
-            // (TASKS.md, Phase 3/Backlog). On reste sur l'écran courant et
-            // on signale juste que ce n'est pas encore disponible.
+            state = state.copyWith(uiMode: UiMode.settings);
+          case AppMode.expert:
+            // Mode expert : hors périmètre MVP (TASKS.md, Backlog). On
+            // reste sur l'écran courant et on signale juste que ce n'est
+            // pas encore disponible.
             _announceComingSoon(item.label);
         }
 
       case SettingsAction():
-        _announceComingSoon(item.label);
+        state = state.copyWith(uiMode: UiMode.settings);
 
       case CancelAction():
-        // Aucun effet de navigation (voir doc `CancelAction`) : rien à
-        // faire tant que la confirmation des actions sensibles (Phase 3)
-        // n'est pas branchée.
+        // Aucun effet de navigation (voir doc `CancelAction`).
         break;
     }
   }

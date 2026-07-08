@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'data/settings_repository.dart';
+import 'domain/models/app_settings.dart';
 import 'eyetracking/detection/face_mesh_gaze_detector.dart';
 import 'ui/demo/demo_home_screen.dart';
 import 'ui/providers/gaze_tracking_providers.dart';
@@ -32,10 +35,22 @@ const bool _useRealGazeDetector = bool.fromEnvironment(
 ///
 /// `ProviderScope` reste câblé dès maintenant car Riverpod est la solution
 /// de gestion d'état verrouillée pour le projet (TASKS.md).
-void main() {
+///
+/// `main()` est désormais asynchrone (Phase 3, TASKS.md — "réglages
+/// configurables") : `sharedPreferencesProvider`
+/// (`lib/data/settings_repository.dart`) doit être surchargé avec une vraie
+/// instance `SharedPreferences` *avant* `runApp`, une fois
+/// `WidgetsFlutterBinding.ensureInitialized()` appelé (requis pour tout
+/// appel de plugin — ici `SharedPreferences.getInstance()` — avant
+/// `runApp`), suivant exactement le schéma documenté sur ce provider.
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+
   runApp(
     ProviderScope(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         if (_useRealGazeDetector)
           faceGazeDetectorProvider.overrideWithValue(FaceMeshGazeDetector()),
       ],
@@ -44,15 +59,31 @@ void main() {
   );
 }
 
-class EyeVoiceApp extends StatelessWidget {
+/// Widget racine : `ConsumerWidget` (plutôt que `StatelessWidget`, Phase 1c)
+/// depuis la Phase 3 car le thème effectif dépend désormais des réglages
+/// utilisateur (section 16) — [AppSettings.contrastLevel] pour le niveau de
+/// contraste ([AppTheme.themeFor]) et [AppSettings.fontSize] pour l'échelle
+/// de police, appliquée globalement via `MediaQuery.textScaler` dans
+/// `builder` plutôt qu'écran par écran (un seul point de câblage, cohérent
+/// avec le reste de l'application qui ne doit jamais coder de taille de
+/// police en dur en dehors de `lib/ui/theme`).
+class EyeVoiceApp extends ConsumerWidget {
   const EyeVoiceApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+
     return MaterialApp(
       title: 'La Voix du Regard',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
+      theme: AppTheme.themeFor(settings.contrastLevel),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(settings.fontSize.scaleFactor),
+        ),
+        child: child!,
+      ),
       home: const DemoHomeScreen(),
     );
   }

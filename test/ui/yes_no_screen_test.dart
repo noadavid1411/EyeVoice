@@ -74,4 +74,24 @@ void main() {
 
     expect(find.byIcon(Icons.arrow_back), findsNothing);
   });
+
+  testWidgets(
+    'affiche une bannière de mode dégradé quand le signal est instable (section 17.3)',
+    (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          const YesNoScreen(
+            gazeState: GazeState(
+              zone: null,
+              dwellProgress: 0.0,
+              confidence: 0.4,
+              signalStatus: GazeSignalStatus.degraded,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+    },
+  );
 }

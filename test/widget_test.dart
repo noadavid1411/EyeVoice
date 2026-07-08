@@ -5,12 +5,14 @@
 
 import 'dart:async';
 
+import 'package:eyevoice/data/settings_repository.dart';
 import 'package:eyevoice/eyetracking/detection/face_gaze_detector.dart';
 import 'package:eyevoice/eyetracking/models/raw_gaze_sample.dart';
 import 'package:eyevoice/main.dart';
 import 'package:eyevoice/ui/providers/gaze_tracking_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Détecteur inerte (n'émet jamais et ne démarre aucun `Timer`), substitué
 /// au [FakeFaceGazeDetector] par défaut pour ce test de fumée : ce dernier
@@ -35,10 +37,14 @@ class _NullFaceGazeDetector implements FaceGazeDetector {
 
 void main() {
   testWidgets('EyeVoiceApp démarre sur l\'accueil en 4 quadrants', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           faceGazeDetectorProvider.overrideWithValue(_NullFaceGazeDetector()),
+          sharedPreferencesProvider.overrideWithValue(prefs),
         ],
         child: const EyeVoiceApp(),
       ),

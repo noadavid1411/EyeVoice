@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:eyevoice/core/models/screen_zone.dart';
+import 'package:eyevoice/data/settings_repository.dart';
 import 'package:eyevoice/domain/models/menu_action.dart';
 import 'package:eyevoice/domain/models/menu_item.dart';
 import 'package:eyevoice/domain/models/sample_menu_config.dart';
@@ -41,11 +43,14 @@ void main() {
   late _FakeTtsEngine engine;
   late ProviderContainer container;
 
-  setUp(() {
+  setUp(() async {
     engine = _FakeTtsEngine();
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     container = ProviderContainer(
       overrides: [
         ttsServiceProvider.overrideWithValue(TtsService(engine: engine)),
+        sharedPreferencesProvider.overrideWithValue(prefs),
       ],
     );
     addTearDown(container.dispose);
@@ -145,18 +150,81 @@ void main() {
       expect(state().screen.id, 'options');
     });
 
-    test(
-        'openMode(expert) et settings restent sur l\'écran courant et signalent "bientôt disponible"',
-        () async {
+    test('openMode(expert) reste sur l\'écran courant et signale "bientôt disponible"', () async {
       await controller().activate(_itemLabeled('home', '⚙️ OPTIONS'));
 
       await controller().activate(_itemLabeled('options', 'Mode expert'));
       expect(state().uiMode, UiMode.grid);
       expect(state().comingSoon?.label, 'Mode expert');
+    });
+
+    test('l\'action settings ouvre le vrai UiMode.settings (section 16)', () async {
+      await controller().activate(_itemLabeled('home', '⚙️ OPTIONS'));
 
       await controller().activate(_itemLabeled('options', 'Réglages'));
+
+      expect(state().uiMode, UiMode.settings);
+      expect(state().screen.id, 'options');
+    });
+
+    test('exitSettings retrouve l\'écran grid-4 précédent sans navigation supplémentaire', () async {
+      await controller().activate(_itemLabeled('home', '⚙️ OPTIONS'));
+      await controller().activate(_itemLabeled('options', 'Réglages'));
+      expect(state().uiMode, UiMode.settings);
+
+      controller().exitSettings();
+
       expect(state().uiMode, UiMode.grid);
-      expect(state().comingSoon?.label, 'Réglages');
+      expect(state().screen.id, 'options');
+    });
+  });
+
+  group('MenuNavigationController — confirmation des actions sensibles (section 17.2)', () {
+    test('un item requiresConfirmation ne résout pas l\'action, ouvre UiMode.confirmation', () async {
+      await controller().activate(_itemLabeled('home', '🩺 PHYSIQUE'));
+      final item = _itemLabeled('physical', 'Changer de position');
+      expect(item.requiresConfirmation, isTrue);
+
+      await controller().activate(item);
+
+      // Toujours sur 'physical' : `resolve()` n'a pas été appelé.
+      expect(state().screen.id, 'physical');
+      expect(state().uiMode, UiMode.confirmation);
+      expect(state().pendingConfirmation, item);
+    });
+
+    test('cancelPending n\'exécute jamais l\'action et revient à l\'écran courant', () async {
+      await controller().activate(_itemLabeled('home', '🩺 PHYSIQUE'));
+      await controller().activate(_itemLabeled('physical', 'Changer de position'));
+      expect(state().uiMode, UiMode.confirmation);
+
+      controller().cancelPending();
+
+      expect(state().uiMode, UiMode.grid);
+      expect(state().screen.id, 'physical');
+      expect(state().pendingConfirmation, isNull);
+    });
+
+    test('confirmPending exécute réellement l\'action (navigate) une fois confirmée', () async {
+      await controller().activate(_itemLabeled('home', '🩺 PHYSIQUE'));
+      await controller().activate(_itemLabeled('physical', 'Changer de position'));
+      expect(state().uiMode, UiMode.confirmation);
+
+      await controller().confirmPending();
+
+      expect(state().uiMode, UiMode.grid);
+      expect(state().screen.id, 'position');
+      expect(state().pendingConfirmation, isNull);
+    });
+
+    test('confirmPending ne fait rien si aucune confirmation n\'est en attente', () async {
+      await controller().activate(_itemLabeled('home', '🩺 PHYSIQUE'));
+      expect(state().uiMode, UiMode.grid);
+
+      await controller().confirmPending();
+
+      expect(state().uiMode, UiMode.grid);
+      expect(state().screen.id, 'physical');
     });
   });
 }

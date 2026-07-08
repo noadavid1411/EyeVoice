@@ -41,24 +41,35 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 
 ## Phase 3 — Complétude MVP
 
-- [ ] Confirmation des actions sensibles (quitter, reset, suppression phrase)
-      — fondation domaine posée (domain-logic-engineer) : `MenuItem.requiresConfirmation`
-      (`lib/domain/models/menu_item.dart`), champ JSON optionnel `requiresConfirmation`
-      parsé/validé (défaut `false`). `ActionResolver` reste volontairement inchangé
-      (pure fonction de résolution) — c'est à l'UI de lire ce flag avant d'appeler
-      `resolve()` et d'afficher le dialogue de confirmation. Reste à faire par
-      flutter-ui-engineer : les dialogues de confirmation eux-mêmes (quitter, reset,
-      suppression phrase) et leur câblage sur ce flag.
-- [ ] Mode dégradé tactile/manuel
-- [ ] Réglages configurables (dwell time, sensibilité, contraste, voix)
-      — fondation domaine posée (domain-logic-engineer) : modèle unifié `AppSettings`
-      (`lib/domain/models/app_settings.dart`, compose `EyeTrackingSettings` + `TtsSettings`
-      existants + nouveaux `AppFontSize`/`AppContrastLevel`/`HomeMode`) et persistance
-      `SettingsRepository` via `shared_preferences` (`lib/data/settings_repository.dart`),
-      exposée en Riverpod via `settingsProvider`/`SettingsController` (lecture réactive +
-      `update()`/`resetToDefaults()`). `sharedPreferencesProvider` doit être surchargé dans
-      `main()` (voir sa doc) — pas encore fait, hors périmètre domaine. Reste à faire par
-      flutter-ui-engineer : l'écran de réglages lui-même et le câblage `main.dart`.
+- [x] Confirmation des actions sensibles (quitter, reset, suppression phrase)
+      — `MenuItem.requiresConfirmation` (domaine, `lib/domain/models/menu_item.dart`) lu par
+      `MenuNavigationController.activate` (`lib/ui/providers/menu_navigation_controller.dart`)
+      avant tout appel à `ActionResolver.resolve` : bascule sur `UiMode.confirmation`
+      (`pendingConfirmation`), résolu réellement seulement via `confirmPending()` ("Oui") ;
+      `cancelPending()` ("Non") n'appelle jamais `resolve`. Dialogue générique
+      `ConfirmationDialog` (`lib/ui/widgets/confirmation_dialog.dart`, réutilise
+      `YesNoScreen` avec un message en rouge d'alerte), affiché par `DemoHomeScreen`.
+      Démonstration concrète : `sample_menu_config.dart` marque l'item "Changer de
+      position" (écran `physical`) `requiresConfirmation: true` (ajustement mineur
+      documenté sur place — aucun écran n'a de marge pour un 5ᵉ item dédié, règle des 4
+      choix déjà atteinte partout) ; `SettingsScreen` câble aussi un bouton "Réinitialiser
+      les réglages" dédié derrière la même confirmation (poussée via `Navigator`).
+- [x] Mode dégradé tactile/manuel — `DegradedSignalBanner`
+      (`lib/ui/widgets/degraded_signal_banner.dart`) affiche une bannière (icône + texte)
+      dès que `GazeState.signalStatus` vaut `degraded`/`lost`, intégrée à `Grid4Screen` et
+      `YesNoScreen` ; purement visuelle, la sélection tactile (`ZoneButton.onTap`)
+      fonctionnait déjà nativement en secours.
+- [x] Réglages configurables (dwell time, sensibilité, contraste, voix) — écran
+      `SettingsScreen` (`lib/ui/screens/settings_screen.dart`), accessible depuis
+      "Options → Réglages"/`UiMode.settings`, consomme `settingsProvider`/
+      `SettingsController` (`lib/data/settings_repository.dart`). Câblage à effet réel :
+      dwell time/sensibilité/zone morte → `GazeTrackingPipeline.updateSettings` via
+      `gazeTrackingPipelineProvider` (`lib/ui/providers/gaze_tracking_providers.dart`) ;
+      synthèse vocale (activée/débit) → `TtsService.updateSettings` via
+      `MenuNavigationController` ; taille de police/contraste → `AppTheme.themeFor` +
+      `MediaQuery.textScaler`, câblés dans `EyeVoiceApp` (`lib/main.dart`). `main()` est
+      désormais asynchrone et surcharge `sharedPreferencesProvider` avec une vraie instance
+      `SharedPreferences`.
 
 ## Phase 4 — Qualité & documentation
 
