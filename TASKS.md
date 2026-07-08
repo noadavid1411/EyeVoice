@@ -35,8 +35,8 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 
 ## Phase 2 — Intégration
 
-- [ ] UI branchée sur `ActionResolver` réel (navigation effective)
-- [ ] UI branchée sur `GazeState` réel (dwell effectif)
+- [x] UI branchée sur `ActionResolver` réel (navigation effective) — `lib/ui/providers/menu_navigation_controller.dart` (`MenuNavigationController`/`menuNavigationProvider`), consommé par `lib/ui/demo/demo_home_screen.dart` ; l'aiguillage d'actions local et provisoire a été retiré, tout passe par le vrai `ActionResolver`/`NavigationHistory` du domaine
+- [x] UI branchée sur `GazeState` réel (dwell effectif) — `lib/ui/providers/gaze_tracking_providers.dart` (`gazeTrackingPipelineProvider`, `gazeStateProvider`, `screenLayoutModeProvider`) câble le vrai `GazeTrackingPipeline` ; en l'absence de caméra dans cet environnement, `faceGazeDetectorProvider` utilise par défaut `lib/ui/gaze/fake_face_gaze_detector.dart` (`FakeFaceGazeDetector`, simulation sans accès caméra qui alimente le pipeline réel), remplaçable par le vrai `FaceMeshGazeDetector` via `lib/main.dart` (`EYEVOICE_USE_REAL_GAZE_DETECTOR`)
 - [x] Service TTS (flutter_tts) branché sur action `speak` — `lib/services/tts_service.dart` (`TtsService`, `TtsEngine`/`FlutterTtsEngine`, `ttsServiceProvider`) + `lib/services/tts_settings.dart` (`TtsSettings`)
 
 ## Phase 3 — Complétude MVP
