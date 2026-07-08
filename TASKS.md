@@ -73,12 +73,43 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 
 ## Phase 4 — Qualité & documentation
 
-- [ ] Tests unitaires : parsing/validation JSON, `ActionResolver`, state machine dwell time, mapping zone
-- [ ] Tests widget : `Grid4Screen`, écran Oui/Non
-- [ ] Checklist critères d'acceptation (section 19 des spécifications)
-- [ ] ADRs des décisions structurantes (Riverpod, structure dossiers, MediaPipe)
-- [ ] Documentation des contrats `ActionResult` / `GazeState` / schéma JSON
-- [ ] Guide de personnalisation aidant/soignant
+- [x] Tests unitaires : parsing/validation JSON, `ActionResolver`, state machine dwell time, mapping zone
+      — audit QA (qa-accessibility-engineer) : couverture déjà quasi complète (109 tests hérités des
+      Phases 0-3, relus en détail : `ActionResolver`, `menu_config_validator`, `dwell_time_controller`
+      couvrent déjà les edge cases sortie de zone/perte de visage/zone morte/navigation back-home
+      imbriquée). Une lacune réelle identifiée et comblée : `SignalQualityMonitor`
+      (`lib/eyetracking/signal/signal_quality_monitor.dart`, section 17.1 instabilité de zone + section
+      17.3 seuil de perte de visage) n'avait aucun test malgré son rôle direct dans la bascule vers le
+      mode dégradé. 11 tests ajoutés — `test/eyetracking/signal_quality_monitor_test.dart` (perte de
+      visage immédiate/progressive, retour à `ok`, instabilité au-delà du seuil, purge de la fenêtre
+      glissante, `reset()`, `updateSettings()` à chaud).
+- [x] Tests widget : `Grid4Screen`, écran Oui/Non — couverture existante relue et jugée suffisante (4
+      choix max, zone morte non interactive, dwell 1.0 → activation unique, bannière mode dégradé,
+      appui tactile de secours) : `test/ui/grid4_screen_test.dart`, `test/ui/yes_no_screen_test.dart`.
+      109 tests hérités + 11 nouveaux = 120 tests, tous verts (`flutter test`) ; `flutter analyze` propre
+      (mêmes 4 infos préexistantes hors périmètre, cf. `docs/adr` pour contexte).
+- [x] Checklist critères d'acceptation (section 19 des spécifications) — `ACCEPTANCE_CHECKLIST.md`
+      (racine du projet, qa-accessibility-engineer). Verdict global MVP : conforme avec 2 réserves à
+      traiter avant clôture formelle : (a) critère 8 — le chargement runtime d'un vrai `menu-config.json`
+      depuis un fichier/asset n'est pas branché (l'app utilise `sampleMenuConfig`, un fixture Dart en
+      mémoire ; le moteur de parsing/validation JSON, lui, est complet et testé) — à signaler à
+      software-architect/domain-logic-engineer ; (b) critère 12 — fiabilité de détection de visage sur
+      matériel réel non encore validée (seul un test émulateur/webcam passthrough peu concluant a été
+      fait, cf. contexte Phase 3 et `docs/adr/0003-mediapipe-face-mesh.md`). Réserve mineure
+      additionnelle (critère 3) : aucune règle automatisée n'impose que le quadrant bas-droite soit
+      toujours une action de navigation — conforme en pratique sur `sampleMenuConfig`, mais non garanti
+      par `validateMenuConfig`.
+- [x] ADRs des décisions structurantes (Riverpod, structure dossiers, MediaPipe)
+      — `docs/adr/0001-riverpod.md`, `docs/adr/0002-structure-dossiers.md`,
+      `docs/adr/0003-mediapipe-face-mesh.md` (index : `docs/adr/README.md`) ;
+      cette dernière documente aussi le rejet de `face_detection_tflite` et
+      la limitation de fiabilité de détection constatée sur émulateur (score
+      de confiance ~0.03, à revalider sur appareil réel).
+- [x] Documentation des contrats `ActionResult` / `GazeState` / schéma JSON
+      — `docs/contracts.md`
+- [x] Guide de personnalisation aidant/soignant — `docs/guide-aidant-soignant.md`
+      (README.md racine également mis à jour : présentation, prérequis,
+      lancement de l'app/des tests, structure du dépôt)
 
 ## Backlog (versions suivantes / avancées)
 
