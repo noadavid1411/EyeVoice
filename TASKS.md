@@ -6,10 +6,10 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 
 ## Phase 0 — Fondations (software-architect)
 
-- [ ] Structure de dossiers (`lib/core`, `lib/data`, `lib/domain`, `lib/eyetracking`, `lib/ui`, `lib/services`)
-- [ ] Contrat `ActionResult` (résultat de résolution d'action)
-- [ ] Contrat `GazeState` (zone, progression dwell, confiance, signal dégradé)
-- [ ] `pubspec.yaml` initial (riverpod, flutter_tts, shared_preferences, dépendance MediaPipe)
+- [x] Structure de dossiers (`lib/core`, `lib/data`, `lib/domain`, `lib/eyetracking`, `lib/ui`, `lib/services`) — ajout de `lib/core/models`, `lib/core/constants`, `lib/domain/actions`, `lib/domain/models`, `lib/eyetracking/models`
+- [x] Contrat `ActionResult` (résultat de résolution d'action) — `lib/domain/actions/action_result.dart`
+- [x] Contrat `GazeState` (zone, progression dwell, confiance, signal dégradé) — `lib/eyetracking/models/gaze_state.dart` (+ `lib/core/models/screen_zone.dart` partagé)
+- [x] `pubspec.yaml` initial (riverpod, flutter_tts, shared_preferences, dépendance MediaPipe) — ajout de `mediapipe_face_mesh` (à revalider par eye-tracking-engineer en Phase 1b)
 
 ## Phase 1a — Moteur de données (domain-logic-engineer)
 
