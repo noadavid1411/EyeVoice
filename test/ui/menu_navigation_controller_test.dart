@@ -158,12 +158,14 @@ void main() {
       expect(state().screen.id, 'options');
     });
 
-    test('openMode(expert) reste sur l\'écran courant et signale "bientôt disponible"', () async {
+    test('openMode(expert) bascule uiMode vers UiMode.expert sans toucher à l\'écran grid-4 courant', () async {
       await controller().activate(_itemLabeled('home', '⚙️ OPTIONS'));
+      expect(state().screen.id, 'options');
 
       await controller().activate(_itemLabeled('options', 'Mode expert'));
-      expect(state().uiMode, UiMode.grid);
-      expect(state().comingSoon?.label, 'Mode expert');
+
+      expect(state().uiMode, UiMode.expert);
+      expect(state().screen.id, 'options');
     });
 
     test('l\'action settings ouvre le vrai UiMode.settings (section 16)', () async {

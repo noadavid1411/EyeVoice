@@ -14,10 +14,11 @@ import 'package:eyevoice/services/tts_settings.dart';
 ///
 /// Distinct des écrans `grid-4` de `menu-config.json` : [UiMode.yesNo] est
 /// un mode dédié ouvert via l'action `openMode` (section 5), pas un
-/// `MenuScreen` de la configuration. [UiMode.confirmation] (section 17.2) et
-/// [UiMode.settings] (section 16) suivent le même principe : ce sont des
+/// `MenuScreen` de la configuration. [UiMode.confirmation] (section 17.2),
+/// [UiMode.settings] (section 16) et [UiMode.expert] (section 8, Niveau 4 —
+/// Mode Expert, `ExpertModeScreen`) suivent le même principe : ce sont des
 /// écrans dédiés côté `ui`, jamais décrits dans `menu-config.json`.
-enum UiMode { grid, yesNo, confirmation, settings }
+enum UiMode { grid, yesNo, confirmation, settings, expert }
 
 /// Événement transitoire "une phrase vient d'être transmise au TTS".
 ///
@@ -31,16 +32,6 @@ class SpokenPhrase {
   const SpokenPhrase(this.text, this.id);
 }
 
-/// Événement transitoire "un item non encore implémenté a été activé"
-/// (ex. mode expert, réglages — hors périmètre MVP de la Phase 2, voir
-/// TASKS.md Phase 3/Backlog). Même logique d'`id` incrémental que
-/// [SpokenPhrase].
-class ComingSoonEvent {
-  final String label;
-  final int id;
-  const ComingSoonEvent(this.label, this.id);
-}
-
 /// État exposé par [MenuNavigationController] à la couche `ui`.
 ///
 /// [screen] reflète toujours le dernier écran `grid-4` résolu par
@@ -52,7 +43,6 @@ class MenuNavigationState {
   final MenuScreen screen;
   final UiMode uiMode;
   final SpokenPhrase? spokenPhrase;
-  final ComingSoonEvent? comingSoon;
 
   /// `homeScreenId` du [MenuConfig] réellement chargé (`menuConfigProvider`).
   ///
@@ -75,7 +65,6 @@ class MenuNavigationState {
     required this.uiMode,
     required this.homeScreenId,
     this.spokenPhrase,
-    this.comingSoon,
     this.pendingConfirmation,
   });
 
@@ -86,7 +75,6 @@ class MenuNavigationState {
     MenuScreen? screen,
     UiMode? uiMode,
     SpokenPhrase? spokenPhrase,
-    ComingSoonEvent? comingSoon,
     MenuItem? pendingConfirmation,
     bool clearPendingConfirmation = false,
   }) {
@@ -95,7 +83,6 @@ class MenuNavigationState {
       uiMode: uiMode ?? this.uiMode,
       homeScreenId: homeScreenId,
       spokenPhrase: spokenPhrase ?? this.spokenPhrase,
-      comingSoon: comingSoon ?? this.comingSoon,
       pendingConfirmation: clearPendingConfirmation
           ? null
           : (pendingConfirmation ?? this.pendingConfirmation),
@@ -144,7 +131,6 @@ class MenuNavigationState {
 class MenuNavigationController extends Notifier<MenuNavigationState> {
   late final ActionResolver _resolver;
   int _speechSeq = 0;
-  int _comingSoonSeq = 0;
 
   @override
   MenuNavigationState build() {
@@ -247,10 +233,17 @@ class MenuNavigationController extends Notifier<MenuNavigationState> {
           case AppMode.settings:
             state = state.copyWith(uiMode: UiMode.settings);
           case AppMode.expert:
-            // Mode expert : hors périmètre MVP (TASKS.md, Backlog). On
-            // reste sur l'écran courant et on signale juste que ce n'est
-            // pas encore disponible.
-            _announceComingSoon(item.label);
+            // Mode expert (section 8, Niveau 4) : bascule vers l'écran
+            // dédié `ExpertModeScreen`, sur le même principe qu'`AppMode.yesNo`
+            // ci-dessus. L'écran grid-4 courant n'est pas modifié (`openMode`
+            // ne pousse rien dans l'historique). La sortie du mode expert
+            // ("revenir au menu principal", section 8.6) ne passe pas par un
+            // `exitExpertMode` dédié : `ExpertModeScreen` réutilise
+            // directement [activate] avec un item `MenuAction.home`
+            // synthétique (voir `DemoHomeScreen`), exactement comme n'importe
+            // quel item `home` de `menu-config.json` — pas de logique
+            // nouvelle à maintenir ici.
+            state = state.copyWith(uiMode: UiMode.expert);
         }
 
       case SettingsAction():
@@ -282,10 +275,6 @@ class MenuNavigationController extends Notifier<MenuNavigationState> {
   Future<void> _speak(String text) async {
     await ref.read(ttsServiceProvider).speak(text);
     state = state.copyWith(spokenPhrase: SpokenPhrase(text, _speechSeq++));
-  }
-
-  void _announceComingSoon(String label) {
-    state = state.copyWith(comingSoon: ComingSoonEvent(label, _comingSoonSeq++));
   }
 }
 

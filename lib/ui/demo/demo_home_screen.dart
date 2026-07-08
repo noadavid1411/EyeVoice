@@ -1,18 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/models/screen_zone.dart';
 import '../../domain/models/menu_action.dart';
+import '../../domain/models/menu_item.dart';
 import '../../domain/models/menu_screen.dart';
 import '../../eyetracking/models/gaze_state.dart';
 import '../../eyetracking/models/screen_layout_mode.dart';
 import '../providers/gaze_tracking_providers.dart';
 import '../providers/menu_navigation_controller.dart';
+import '../screens/expert_mode_screen.dart';
 import '../screens/grid4_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/yes_no_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/confirmation_dialog.dart';
+
+/// Item synthétique "retour au menu principal", réutilisé pour
+/// [ExpertModeScreen.onExitToHome] (section 8.6) : construit exactement
+/// comme le ferait `menu-config.json` pour un item `home` (voir
+/// `MenuAction.home`), puis résolu par le vrai [ActionResolver] via
+/// `MenuNavigationController.activate` — aucune logique de navigation
+/// nouvelle, conformément à la consigne "réutilise l'existant, ne
+/// réimplémente rien" (section 8.6).
+const _expertHomeItem = MenuItem(
+  zone: ScreenZone.bottomRight,
+  label: 'Accueil',
+  action: MenuAction.home,
+);
 
 /// Écran d'accueil réel de l'application.
 ///
@@ -34,10 +50,12 @@ import '../widgets/confirmation_dialog.dart';
 /// [MenuNavigationController] pour la justification de ce séquencement.
 ///
 /// Phase 3 (TASKS.md) : affiche aussi [ConfirmationDialog] tant que
-/// `uiMode == UiMode.confirmation` (section 17.2, actions sensibles) et
+/// `uiMode == UiMode.confirmation` (section 17.2, actions sensibles),
 /// [SettingsScreen] tant que `uiMode == UiMode.settings` (section 16,
-/// réglages configurables) — deux écrans dédiés côté `ui`, au même titre
-/// que [YesNoScreen], jamais décrits dans `menu-config.json`.
+/// réglages configurables), et [ExpertModeScreen] tant que
+/// `uiMode == UiMode.expert` (section 8, Niveau 4 — Mode Expert) — trois
+/// écrans dédiés côté `ui`, au même titre que [YesNoScreen], jamais décrits
+/// dans `menu-config.json`.
 class DemoHomeScreen extends ConsumerWidget {
   const DemoHomeScreen({super.key});
 
@@ -54,18 +72,13 @@ class DemoHomeScreen extends ConsumerWidget {
       ref.read(gazeTrackingPipelineProvider).setLayoutMode(next);
     });
 
-    // Réagit aux événements transitoires exposés par le contrôleur de
-    // navigation (phrase transmise au TTS, item pas encore implémenté) en
-    // affichant un retour visuel ponctuel, sans coupler ces événements à
-    // l'état persistant de l'écran affiché.
+    // Réagit à l'événement transitoire "phrase transmise au TTS" exposé par
+    // le contrôleur de navigation en affichant un retour visuel ponctuel,
+    // sans coupler cet événement à l'état persistant de l'écran affiché.
     ref.listen<MenuNavigationState>(menuNavigationProvider, (previous, next) {
       final spoken = next.spokenPhrase;
       if (spoken != null && spoken.id != previous?.spokenPhrase?.id) {
         _showSpokenPhrase(context, spoken.text);
-      }
-      final comingSoon = next.comingSoon;
-      if (comingSoon != null && comingSoon.id != previous?.comingSoon?.id) {
-        _showComingSoon(context, comingSoon.label);
       }
     });
 
@@ -101,6 +114,17 @@ class DemoHomeScreen extends ConsumerWidget {
       return SettingsScreen(onClose: controller.exitSettings);
     }
 
+    // Mode expert (section 8, Niveau 4) : "revenir au menu principal"
+    // réutilise directement `activate` avec un item `home` synthétique —
+    // exactement la même résolution `back`/`home` que n'importe quel item
+    // de `menu-config.json` (voir la doc de `_expertHomeItem`).
+    if (navState.uiMode == UiMode.expert) {
+      return ExpertModeScreen(
+        gazeState: gazeState,
+        onExitToHome: () => controller.activate(_expertHomeItem),
+      );
+    }
+
     final screen = navState.screen;
     final isHome = screen.id == navState.homeScreenId;
     return Grid4Screen(
@@ -132,17 +156,6 @@ class DemoHomeScreen extends ConsumerWidget {
           '🔊 $phrase',
           style: AppTextStyles.caption.copyWith(color: AppColors.textAccent),
         ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  static void _showComingSoon(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: AppColors.surfaceHighlight,
-        content: Text('$label — bientôt disponible', style: AppTextStyles.caption),
         duration: const Duration(seconds: 2),
       ),
     );

@@ -90,8 +90,14 @@ final screenLayoutModeProvider = Provider<ScreenLayoutMode>((ref) {
   // `eyetracking`. L'écran de réglages ([UiMode.settings]) est une liste
   // défilante sans zones de regard : le mode importe peu tant qu'aucun
   // `ZoneButton` n'y est affiché, `quadrant` reste donc un défaut neutre.
+  // Le mode expert ([UiMode.expert], section 8) enchaîne des sous-écrans en
+  // grille 4 zones balayée (`ScanningGrid`) : même disposition `quadrant`
+  // que la grille standard, la seule différence étant *quand* une zone est
+  // considérée validée (surbrillance du balayage plutôt que dwell time),
+  // ce qui reste entièrement du ressort de `ExpertModeScreen`/`ScanningGrid`
+  // côté `ui`, pas de `eyetracking`.
   return switch (uiMode) {
     UiMode.yesNo || UiMode.confirmation => ScreenLayoutMode.yesNo,
-    UiMode.grid || UiMode.settings => ScreenLayoutMode.quadrant,
+    UiMode.grid || UiMode.settings || UiMode.expert => ScreenLayoutMode.quadrant,
   };
 });
