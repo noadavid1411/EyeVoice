@@ -28,10 +28,10 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 
 ## Phase 1c — Interface (flutter-ui-engineer)
 
-- [ ] Thème sombre haut contraste
-- [ ] Widget `Grid4Screen` générique (données mockées)
-- [ ] Indicateur de progression de sélection (consomme `GazeState`)
-- [ ] Écran Oui/Non (2 zones, vert/rouge)
+- [x] Thème sombre haut contraste — `lib/ui/theme/app_colors.dart`, `app_text_styles.dart`, `app_theme.dart` (branché dans `lib/main.dart`)
+- [x] Widget `Grid4Screen` générique (données mockées) — `lib/ui/screens/grid4_screen.dart`, données mockées via `lib/domain/models/sample_menu_config.dart` dans `lib/ui/demo/demo_home_screen.dart`
+- [x] Indicateur de progression de sélection (consomme `GazeState`) — `lib/ui/widgets/dwell_progress_border.dart` + `lib/ui/widgets/zone_button.dart` (consomment `GazeState.dwellProgress`)
+- [x] Écran Oui/Non (2 zones, vert/rouge) — `lib/ui/screens/yes_no_screen.dart`
 
 ## Phase 2 — Intégration
 
