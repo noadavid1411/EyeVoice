@@ -113,6 +113,15 @@ class _Grid4ScreenState extends State<Grid4Screen> {
   /// que si la progression *vient d'atteindre* 1.0 sur une zone donnée,
   /// pour ne jamais déclencher deux fois la même sélection tant que le
   /// regard reste dessus.
+  ///
+  /// L'appel est différé après la frame en cours (`addPostFrameCallback`) :
+  /// [_maybeFireActivation] est invoquée depuis [didUpdateWidget], donc en
+  /// plein milieu de la construction du widget tree. `onActivated` déclenche
+  /// en pratique une écriture d'état Riverpod (`MenuNavigationController`),
+  /// ce que Riverpod interdit tant qu'un build est en cours — appeler
+  /// directement ici lève `Tried to modify a provider while the widget tree
+  /// was building` dès que le dwell simulé (ou réel) atteint 1.0 pendant un
+  /// rebuild.
   void _maybeFireActivation(GazeState previous, GazeState current) {
     final zone = current.zone;
     if (zone == null || zone == ScreenZone.centerDeadZone) return;
@@ -122,7 +131,9 @@ class _Grid4ScreenState extends State<Grid4Screen> {
     if (alreadyFired) return;
 
     final item = widget.items.where((i) => i.zone == zone).firstOrNull;
-    item?.onActivated?.call();
+    final callback = item?.onActivated;
+    if (callback == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => callback());
   }
 
   Grid4Item? _itemFor(ScreenZone zone) =>

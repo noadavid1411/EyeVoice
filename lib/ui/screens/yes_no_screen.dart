@@ -61,6 +61,11 @@ class _YesNoScreenState extends State<YesNoScreen> {
     _maybeFireActivation(oldWidget.gazeState, widget.gazeState);
   }
 
+  /// Voir la doc équivalente dans `Grid4Screen._maybeFireActivation` : appel
+  /// différé après la frame (`addPostFrameCallback`) car [didUpdateWidget]
+  /// s'exécute en plein build, et `onYes`/`onNo` écrivent dans
+  /// `MenuNavigationController` (Riverpod), ce qui est interdit tant que le
+  /// widget tree est en cours de construction.
   void _maybeFireActivation(GazeState previous, GazeState current) {
     final zone = current.zone;
     if (zone != ScreenZone.left && zone != ScreenZone.right) return;
@@ -69,11 +74,9 @@ class _YesNoScreenState extends State<YesNoScreen> {
     final alreadyFired = previous.zone == zone && previous.dwellProgress >= 1.0;
     if (alreadyFired) return;
 
-    if (zone == ScreenZone.left) {
-      widget.onYes?.call();
-    } else {
-      widget.onNo?.call();
-    }
+    final callback = zone == ScreenZone.left ? widget.onYes : widget.onNo;
+    if (callback == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => callback());
   }
 
   double _progressFor(ScreenZone zone) =>
