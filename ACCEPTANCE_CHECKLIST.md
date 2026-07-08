@@ -110,27 +110,26 @@ l'action speak") et unitairement dans `test/services/tts_service_test.dart`.
 
 ## 8. Les menus sont chargés depuis un fichier de données
 
-**⚠️ Partiel — lacune réelle à signaler à software-architect / domain-logic-engineer.**
+**✅ Validé** (résolu après la Phase 4, commits `d7ceb0d`/`aa8ead0`).
 
 Le moteur de parsing/validation JSON est complet et testé
 (`MenuConfig.fromJson`, `validateMenuConfig`, `loadMenuConfig` —
 `test/domain/menu_config_validator_test.dart`) : la structure JSON de la
 section 11.2 est correctement interprétée et validée.
 
-**Mais l'application ne charge aujourd'hui aucun fichier `menu-config.json`
-réel au runtime.** `MenuNavigationController.build()`
-(`lib/ui/providers/menu_navigation_controller.dart`) instancie directement
-`sampleMenuConfig`, un fixture Dart en mémoire (`lib/domain/models/sample_menu_config.dart`).
-Aucun asset JSON n'existe dans le dépôt, `pubspec.yaml` ne déclare aucune
-section `assets:`, et aucun code de chargement (`rootBundle.loadString` ou
-équivalent) n'a été trouvé dans `lib/`. Le contenu des menus reste donc, en
-pratique, codé dans les composants Dart plutôt que chargé depuis un fichier
-séparé (contrairement à la section 11.1). Ce point était déjà noté comme hors
-périmètre par domain-logic-engineer dans le code (commentaire explicite sur
-`MenuNavigationController.build`) mais n'a pas de tâche dédiée dans
-`TASKS.md` Phase 4 — à ajouter/clarifier avant de considérer le MVP complet,
-car c'est un critère d'acceptation explicite (section 19) et une exigence
-d'architecture (section 11.1).
+L'application charge désormais un vrai `assets/menu-config.json` au runtime
+via `MenuConfigRepository` (`lib/data/menu_config_repository.dart`,
+`rootBundle.loadString` + `loadMenuConfig`) exposé par `menuConfigProvider`
+(`FutureProvider<MenuConfig>`). `MenuNavigationController.build()`
+(`lib/ui/providers/menu_navigation_controller.dart`) lit cette config réelle
+via `requireValue` ; `EyeVoiceApp` (`lib/main.dart`) affiche un écran de
+chargement puis, le cas échéant, un écran d'erreur explicite
+(`MenuConfigParseException`/`MenuConfigValidationException`) avant de monter
+l'accueil — aucun crash silencieux possible. `sampleMenuConfig` reste une
+fixture de test uniquement (surchargée via `menuConfigProvider.overrideWith`
+dans les tests concernés), plus référencée depuis le code de production.
+Couvert de bout en bout par `test/data/menu_config_repository_test.dart` et
+`test/widget_test.dart` (chargement du vrai asset).
 
 ## 9. Le mode Oui/Non fonctionne avec 2 zones simples
 
