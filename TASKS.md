@@ -37,7 +37,7 @@ Décisions techniques verrouillées : Flutter, Riverpod (state management), Medi
 
 - [ ] UI branchée sur `ActionResolver` réel (navigation effective)
 - [ ] UI branchée sur `GazeState` réel (dwell effectif)
-- [ ] Service TTS (flutter_tts) branché sur action `speak`
+- [x] Service TTS (flutter_tts) branché sur action `speak` — `lib/services/tts_service.dart` (`TtsService`, `TtsEngine`/`FlutterTtsEngine`, `ttsServiceProvider`) + `lib/services/tts_settings.dart` (`TtsSettings`)
 
 ## Phase 3 — Complétude MVP
 
