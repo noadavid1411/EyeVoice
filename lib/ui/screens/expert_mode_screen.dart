@@ -29,11 +29,22 @@ import '../widgets/scanning_grid.dart';
 ///   navigation (page suivante / retour aux groupes) ;
 /// - [ExpertStep.actions] : les fonctions de la section 8.6 autres que
 ///   "ajouter une lettre" (déjà couverte par group→letters) : effacer,
-///   espace, valider, retour au menu principal. Accessible depuis
-///   n'importe quel sous-écran via le petit bouton "Fonctions" de l'en-tête
-///   (appui tactile uniquement, à la manière du bouton retour discret de
-///   `YesNoScreen`/`SettingsScreen` — pas un choix balayé au même titre que
-///   les 4 zones, pour ne pas consommer un 5e emplacement).
+///   espace, valider, retour au menu principal. Accessible de **deux**
+///   façons complémentaires, jamais l'une au détriment de l'autre (mode
+///   dégradé tactile toujours actif, section 17.3) :
+///   - par appui tactile à tout moment sur le petit bouton "Fonctions" de
+///     l'en-tête, à la manière du bouton retour discret de
+///     `YesNoScreen`/`SettingsScreen` — raccourci direct, indépendant du
+///     balayage ;
+///   - par balayage temporel pur (regard ou tap), depuis [ExpertStep.group]
+///     et [ExpertStep.letters] : ces deux écrans passent un
+///     `ExtraScanTarget` "Fonctions" à leur `ScanningGrid`
+///     (`lib/ui/widgets/scanning_grid.dart`), qui l'intègre comme 5e étape
+///     temporelle rendue dans le quadrant bas-droite pendant sa fenêtre.
+///     Indispensable pour un patient qui ne peut interagir que par le
+///     regard (pas de tap manuel possible) : sans ce second chemin, ces 4
+///     fonctions — y compris "Menu principal", seule sortie du mode expert
+///     — lui seraient totalement inaccessibles.
 ///
 /// L'en-tête de composition (texte + suggestions, section 8.5) affiche le
 /// texte composé et jusqu'à 3 suggestions de `WordPredictor` ; taper une
@@ -116,6 +127,7 @@ class _ExpertModeScreenState extends ConsumerState<ExpertModeScreen> {
                 onActivated: () => controller.selectGroup(group),
               ),
           ],
+          extraScanTarget: _functionsScanTarget(controller),
         );
 
       case ExpertStep.letters:
@@ -136,6 +148,7 @@ class _ExpertModeScreenState extends ConsumerState<ExpertModeScreen> {
                   onActivated: () => controller.selectGroup(g),
                 ),
             ],
+            extraScanTarget: _functionsScanTarget(controller),
           );
         }
         final pages = group.lettersPaged(pageSize: ExpertModeController.lettersPageSize);
@@ -160,6 +173,7 @@ class _ExpertModeScreenState extends ConsumerState<ExpertModeScreen> {
               onActivated: controller.nextLetterPageOrBackToGroups,
             ),
           ],
+          extraScanTarget: _functionsScanTarget(controller),
         );
 
       case ExpertStep.actions:
@@ -196,6 +210,20 @@ class _ExpertModeScreenState extends ConsumerState<ExpertModeScreen> {
           ],
         );
     }
+  }
+
+  /// Cible additionnelle "Fonctions" (section 8.6), balayée comme 5e étape
+  /// temporelle par les grilles de [ExpertStep.group] et
+  /// [ExpertStep.letters] — voir la doc de classe. Non utilisée pour
+  /// [ExpertStep.actions] lui-même : une fois cet écran atteint, y
+  /// re-proposer "Fonctions" n'aurait aucun intérêt (`openActions` y est
+  /// déjà un no-op visuel).
+  ExtraScanTarget _functionsScanTarget(ExpertModeController controller) {
+    return ExtraScanTarget(
+      label: 'Fonctions',
+      icon: Icons.build_outlined,
+      onActivated: controller.openActions,
+    );
   }
 }
 

@@ -24,6 +24,34 @@ import 'zone_button.dart';
 /// (hors mode expert) apparaît.
 const Duration kScanHighlightInterval = Duration(milliseconds: 1400);
 
+/// Une cible additionnelle, **non spatiale**, balayée par [ScanningGrid]
+/// comme une 5e étape temporelle, en plus des (au plus 4) zones de
+/// [ScanningGrid.items].
+///
+/// Pensée pour l'accès aux fonctions du mode expert (section 8.6 :
+/// effacer/espace/valider/menu principal) depuis les écrans "groupe" et
+/// "lettres" (section 8.3/8.4, `ExpertModeScreen`) : ces écrans occupent
+/// déjà leurs 4 zones avec des choix obligatoires (les 4 groupes de la
+/// table 8.3, ou 3 lettres + navigation de page), donc aucune 5e
+/// [ScanChoice] spatiale n'est possible sans en sacrifier une — voir la doc
+/// de [ScanningGrid.extraScanTarget] pour où et comment cette cible est
+/// rendue pendant sa fenêtre.
+@immutable
+class ExtraScanTarget {
+  /// Libellé court affiché pendant la fenêtre de surbrillance de cette
+  /// étape.
+  final String label;
+
+  final IconData? icon;
+
+  /// Appelée lorsque cette étape est validée pendant sa fenêtre de
+  /// surbrillance — par appui tactile ou par fixation du regard, exactement
+  /// comme un [ScanChoice] (voir [ScanningGrid.extraScanTarget]).
+  final VoidCallback? onActivated;
+
+  const ExtraScanTarget({required this.label, this.icon, this.onActivated});
+}
+
 /// Un choix balayé automatiquement par [ScanningGrid].
 ///
 /// Même forme qu'un `Grid4Item` (`lib/ui/screens/grid4_screen.dart`) :
@@ -96,10 +124,40 @@ class ScanChoice {
 /// un écran appelant qui affiche déjà cette bannière une seule fois pour
 /// l'ensemble de la page (voir `ExpertModeScreen`, qui alterne plusieurs
 /// [ScanningGrid] au fil de la session sous une bannière commune).
+///
+/// ### Étape additionnelle non-spatiale ([extraScanTarget])
+///
+/// Quand [extraScanTarget] est fourni, le cycle de balayage comporte une 5e
+/// étape temporelle, insérée après les zones occupées de [items]. Pendant
+/// sa fenêtre, cette étape est rendue **dans le quadrant bas-droite**
+/// (celui-ci redevient disponible pour son occupant habituel de [items],
+/// s'il y en a un, dès l'étape suivante) : le bas-droite est par
+/// construction "réservé à la navigation/options" (section 4.6), ce dont
+/// relève l'accès aux fonctions du mode expert.
+///
+/// Ce choix — rendre la cible additionnelle *dans la grille* plutôt que de
+/// se contenter d'exposer un simple booléen "en surbrillance" à un widget
+/// externe (ex. l'icône d'en-tête `ExpertModeScreen._CompositionHeader`) —
+/// est délibéré : [GazeState.zone] ne connaît que les quadrants de
+/// [ScreenZone], pas la position d'une icône d'en-tête. Un widget hors
+/// grille pourrait bien afficher une bordure lumineuse en synchronisation
+/// avec cette étape, mais ne pourrait jamais être validé par fixation du
+/// regard sans faire évoluer la couche `eyetracking` (mapping
+/// coordonnées→zone), hors périmètre de ce widget. En réutilisant une zone
+/// de la grille, la validation par regard fonctionne immédiatement avec
+/// l'infrastructure [GazeState]/[ScreenZone] existante — c'est ce qui rend
+/// cette étape réellement atteignable par un patient qui ne peut interagir
+/// que par le regard, pas seulement par un appui tactile sur une icône.
 class ScanningGrid extends StatefulWidget {
   /// Choix affichés, un par quadrant occupé. Ne doit jamais dépasser 4
   /// (section 4.1/10.1).
   final List<ScanChoice> items;
+
+  /// Cible additionnelle balayée comme 5e étape temporelle, non liée à un
+  /// quadrant de [items] — voir la doc de classe, section "Étape
+  /// additionnelle non-spatiale". `null` (par défaut) : le cycle ne
+  /// comporte que les zones occupées de [items].
+  final ExtraScanTarget? extraScanTarget;
 
   /// Durée de la fenêtre de surbrillance de chaque zone.
   final Duration interval;
@@ -114,6 +172,7 @@ class ScanningGrid extends StatefulWidget {
   const ScanningGrid({
     super.key,
     required this.items,
+    this.extraScanTarget,
     this.interval = kScanHighlightInterval,
     this.gazeState = const GazeState.idle(),
     this.showDeadZoneMarker = true,
@@ -132,7 +191,16 @@ class _ScanningGridState extends State<ScanningGrid> {
   /// [ScanningGrid.interval] pour un remplissage visuel fluide (section 4.5).
   static const Duration _tick = Duration(milliseconds: 50);
 
-  late List<ScreenZone> _order;
+  /// Quadrant de la grille dans lequel [ScanningGrid.extraScanTarget] est
+  /// rendu pendant sa fenêtre de surbrillance — voir la doc de classe de
+  /// [ScanningGrid], section "Étape additionnelle non-spatiale".
+  static const ScreenZone _extraStepZone = ScreenZone.bottomRight;
+
+  /// Ordre de balayage : les zones occupées de [ScanningGrid.items], puis
+  /// `null` en dernière position si [ScanningGrid.extraScanTarget] est
+  /// fourni (`null` représente cette étape non-spatiale, par opposition à
+  /// une vraie [ScreenZone]).
+  late List<ScreenZone?> _order;
   int _activeIndex = 0;
   Duration _elapsed = Duration.zero;
   Timer? _timer;
@@ -142,6 +210,15 @@ class _ScanningGridState extends State<ScanningGrid> {
   void initState() {
     super.initState();
     _order = _computeOrder();
+    // Cycle de balayage *intentionnel* du mode expert (section 8.2) : ce
+    // `Timer.periodic` est piloté uniquement par [ScanningGrid] lui-même,
+    // indépendamment de `GazeState`/de la couche `eyetracking` (réelle ou
+    // factice — voir `lib/eyetracking`). Il avance tout seul même si aucun
+    // visage n'est détecté et même sans aucun signal de regard : ce n'est
+    // PAS un comportement résiduel d'un détecteur de dwell factice, c'est
+    // la temporisation du balayage lui-même, qui existerait à l'identique
+    // avec un eye-tracking réel pleinement opérationnel (voir aussi la doc
+    // de [kScanHighlightInterval]).
     _timer = Timer.periodic(_tick, (_) => _onTick());
   }
 
@@ -159,8 +236,10 @@ class _ScanningGridState extends State<ScanningGrid> {
 
   /// Ordre de balayage fixe (haut-gauche, haut-droite, bas-gauche,
   /// bas-droite), restreint aux zones effectivement occupées par un
-  /// [ScanChoice] — une zone vide n'est jamais mise en surbrillance.
-  List<ScreenZone> _computeOrder() {
+  /// [ScanChoice] — une zone vide n'est jamais mise en surbrillance — puis
+  /// une dernière étape `null` (l'étape non-spatiale de
+  /// [ScanningGrid.extraScanTarget]) si celle-ci est fournie.
+  List<ScreenZone?> _computeOrder() {
     const fixedOrder = [
       ScreenZone.topLeft,
       ScreenZone.topRight,
@@ -168,10 +247,27 @@ class _ScanningGridState extends State<ScanningGrid> {
       ScreenZone.bottomRight,
     ];
     final present = widget.items.map((i) => i.zone).toSet();
-    return fixedOrder.where(present.contains).toList(growable: false);
+    final zones = fixedOrder.where(present.contains).toList();
+    return [
+      ...zones,
+      if (widget.extraScanTarget != null) null,
+    ];
   }
 
-  ScreenZone? get _activeZone => _order.isEmpty ? null : _order[_activeIndex];
+  /// `true` si l'étape actuellement en surbrillance est
+  /// [ScanningGrid.extraScanTarget] (représentée par `null` dans [_order]),
+  /// plutôt qu'une zone de [ScanningGrid.items].
+  bool get _isExtraStepActive => _order.isNotEmpty && _order[_activeIndex] == null;
+
+  /// Zone de grille actuellement en surbrillance pour un [ScanChoice], ou
+  /// `null` si aucune zone n'est occupée ou si c'est l'étape
+  /// [ScanningGrid.extraScanTarget] qui est active (voir
+  /// [_isExtraStepActive] — dans ce cas c'est [_extraStepZone] qui porte la
+  /// surbrillance visuelle, pas une zone de [ScanningGrid.items]).
+  ScreenZone? get _activeZone {
+    if (_order.isEmpty || _isExtraStepActive) return null;
+    return _order[_activeIndex];
+  }
 
   void _onTick() {
     if (!mounted || _order.isEmpty) return;
@@ -183,6 +279,25 @@ class _ScanningGridState extends State<ScanningGrid> {
         _firedThisWindow = false;
       }
     });
+  }
+
+  /// Résout le callback à déclencher pour un appui/une fixation sur [zone],
+  /// selon l'étape courante :
+  /// - pendant la fenêtre de [ScanningGrid.extraScanTarget] (rendue dans
+  ///   [_extraStepZone]), seule cette zone déclenche
+  ///   [ExtraScanTarget.onActivated] ;
+  /// - sinon, seule la zone en surbrillance ([_activeZone]) déclenche le
+  ///   [ScanChoice] correspondant.
+  ///
+  /// Toute autre zone ne renvoie aucun callback (contrat du balayage
+  /// temporel, section 8.2 : hors fenêtre active, aucun effet).
+  VoidCallback? _activatedCallbackFor(ScreenZone zone) {
+    if (_isExtraStepActive) {
+      if (zone != _extraStepZone) return null;
+      return widget.extraScanTarget?.onActivated;
+    }
+    if (zone != _activeZone) return null;
+    return _itemFor(zone)?.onActivated;
   }
 
   /// Bonus (section 8.2) : valide la zone en surbrillance si le regard s'y
@@ -197,9 +312,8 @@ class _ScanningGridState extends State<ScanningGrid> {
   /// `Grid4Screen._maybeFireActivation`).
   void _maybeFireFromGaze() {
     final zone = widget.gazeState.zone;
-    if (zone == null || zone == ScreenZone.centerDeadZone) return;
-    if (zone != _activeZone || _firedThisWindow) return;
-    final callback = _itemFor(zone)?.onActivated;
+    if (zone == null || zone == ScreenZone.centerDeadZone || _firedThisWindow) return;
+    final callback = _activatedCallbackFor(zone);
     if (callback == null) return;
     _firedThisWindow = true;
     WidgetsBinding.instance.addPostFrameCallback((_) => callback());
@@ -212,27 +326,45 @@ class _ScanningGridState extends State<ScanningGrid> {
   void _handleTap(ScreenZone zone) {
     // Hors fenêtre de surbrillance active : aucun effet (contrat explicite
     // de la tâche, cohérent avec le principe du balayage temporel).
-    if (zone != _activeZone || _firedThisWindow) return;
-    final callback = _itemFor(zone)?.onActivated;
+    if (_firedThisWindow) return;
+    final callback = _activatedCallbackFor(zone);
     if (callback == null) return;
     _firedThisWindow = true;
     callback();
   }
 
   double _progressFor(ScreenZone zone) {
-    if (zone != _activeZone || widget.interval.inMilliseconds == 0) return 0.0;
+    if (widget.interval.inMilliseconds == 0) return 0.0;
+    final isActiveHere = _isExtraStepActive ? zone == _extraStepZone : zone == _activeZone;
+    if (!isActiveHere) return 0.0;
     return (_elapsed.inMilliseconds / widget.interval.inMilliseconds).clamp(0.0, 1.0);
   }
 
   ScanChoice? _itemFor(ScreenZone zone) => widget.items.where((i) => i.zone == zone).firstOrNull;
 
   Widget _buildCell(ScreenZone zone) {
+    // Étape [ScanningGrid.extraScanTarget] active : ce quadrant (toujours
+    // bas-droite, voir [_extraStepZone]) affiche temporairement cette cible
+    // à la place de son occupant habituel de [ScanningGrid.items] — voir la
+    // doc de classe, section "Étape additionnelle non-spatiale". Celui-ci
+    // réapparaîtra dès l'étape suivante du cycle.
+    if (_isExtraStepActive && zone == _extraStepZone && widget.extraScanTarget != null) {
+      final extra = widget.extraScanTarget!;
+      return ZoneButton(
+        label: extra.label,
+        icon: extra.icon,
+        backgroundColor: AppColors.navigation,
+        dwellProgress: _progressFor(zone),
+        isFixated: true,
+        onTap: () => _handleTap(zone),
+      );
+    }
     final item = _itemFor(zone);
     if (item == null) {
       // Quadrant volontairement vide : espace neutre, jamais interactif.
       return const SizedBox.expand();
     }
-    final highlighted = zone == _activeZone;
+    final highlighted = !_isExtraStepActive && zone == _activeZone;
     return ZoneButton(
       label: item.label,
       icon: item.icon,

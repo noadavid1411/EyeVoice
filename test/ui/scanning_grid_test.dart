@@ -188,4 +188,149 @@ void main() {
       throwsA(isA<AssertionError>()),
     );
   });
+
+  group('extraScanTarget (5e étape non-spatiale, accès "Fonctions" du mode expert)', () {
+    testWidgets(
+      'la 5e étape est atteinte après les 4 zones et affiche son libellé en bas-droite',
+      (tester) async {
+        await tester.pumpWidget(
+          wrap(
+            ScanningGrid(
+              items: fourChoices(),
+              interval: interval,
+              extraScanTarget: const ExtraScanTarget(label: 'Fonctions'),
+            ),
+          ),
+        );
+
+        // Avant que le balayage n'atteigne la 5e étape : le bas-droite
+        // affiche toujours son occupant habituel ('S-Z'), pas 'Fonctions'.
+        expect(find.text('Fonctions'), findsNothing);
+
+        // 4 fenêtres pour parcourir les 4 zones, une 5e pour atteindre
+        // l'étape non-spatiale.
+        await tester.pump(interval * 4);
+
+        expect(find.text('Fonctions'), findsOneWidget);
+        expect(find.text('S-Z'), findsNothing, reason: 'temporairement remplacé pendant sa fenêtre');
+      },
+    );
+
+    testWidgets(
+      'un tap sur le bas-droite pendant la fenêtre "Fonctions" la valide (accessible sans tap sur une icône hors grille)',
+      (tester) async {
+        var count = 0;
+        await tester.pumpWidget(
+          wrap(
+            ScanningGrid(
+              items: fourChoices(),
+              interval: interval,
+              extraScanTarget: ExtraScanTarget(label: 'Fonctions', onActivated: () => count++),
+            ),
+          ),
+        );
+
+        await tester.pump(interval * 4);
+        await tester.tap(find.text('Fonctions'));
+        await tester.pump();
+
+        expect(count, 1);
+      },
+    );
+
+    testWidgets('un tap sur le bas-droite hors de la fenêtre "Fonctions" n\'a aucun effet', (
+      tester,
+    ) async {
+      var count = 0;
+      var bottomRightCount = 0;
+      await tester.pumpWidget(
+        wrap(
+          ScanningGrid(
+            items: fourChoices(onBottomRight: () => bottomRightCount++),
+            interval: interval,
+            extraScanTarget: ExtraScanTarget(label: 'Fonctions', onActivated: () => count++),
+          ),
+        ),
+      );
+
+      // Au départ, c'est haut-gauche qui est en surbrillance ; le
+      // bas-droite affiche 'S-Z' (son occupant normal), pas 'Fonctions'.
+      await tester.tap(find.text('S-Z'));
+      await tester.pump();
+
+      expect(count, 0);
+      expect(bottomRightCount, 0);
+    });
+
+    testWidgets(
+      'une fixation du regard sur le bas-droite pendant la fenêtre "Fonctions" la valide aussi (bonus section 8.2)',
+      (tester) async {
+        var count = 0;
+        Widget build(GazeState gazeState) => wrap(
+              ScanningGrid(
+                items: fourChoices(),
+                interval: interval,
+                extraScanTarget: ExtraScanTarget(label: 'Fonctions', onActivated: () => count++),
+                gazeState: gazeState,
+              ),
+            );
+
+        await tester.pumpWidget(build(const GazeState.idle()));
+        await tester.pump(interval * 4);
+        await tester.pumpWidget(
+          build(
+            const GazeState(
+              zone: ScreenZone.bottomRight,
+              dwellProgress: 0.2,
+              confidence: 1.0,
+              signalStatus: GazeSignalStatus.ok,
+            ),
+          ),
+        );
+
+        expect(count, 1);
+      },
+    );
+
+    testWidgets(
+      'après la fenêtre "Fonctions", le cycle reprend et l\'occupant normal du bas-droite redevient balayable',
+      (tester) async {
+        var bottomRightCount = 0;
+        await tester.pumpWidget(
+          wrap(
+            ScanningGrid(
+              items: fourChoices(onBottomRight: () => bottomRightCount++),
+              interval: interval,
+              extraScanTarget: const ExtraScanTarget(label: 'Fonctions'),
+            ),
+          ),
+        );
+
+        // 5 fenêtres : les 4 zones, puis 'Fonctions' ; le cycle reboucle
+        // alors sur haut-gauche.
+        await tester.pump(interval * 5);
+        expect(find.text('S-Z'), findsOneWidget, reason: 'le libellé normal est de retour');
+
+        // 3 fenêtres de plus (haut-gauche → haut-droite → bas-gauche →
+        // bas-droite) pour retrouver 'S-Z' effectivement en surbrillance et
+        // vérifier qu'il redevient bien validable.
+        await tester.pump(interval * 3);
+        await tester.tap(find.text('S-Z'));
+        await tester.pump();
+
+        expect(bottomRightCount, 1);
+      },
+    );
+
+    testWidgets(
+      'sans extraScanTarget, aucune 5e étape n\'apparaît (comportement inchangé)',
+      (tester) async {
+        await tester.pumpWidget(wrap(ScanningGrid(items: fourChoices(), interval: interval)));
+
+        await tester.pump(interval * 10);
+
+        expect(find.text('Fonctions'), findsNothing);
+      },
+    );
+  });
 }

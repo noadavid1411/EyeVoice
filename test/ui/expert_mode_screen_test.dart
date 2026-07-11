@@ -162,6 +162,70 @@ void main() {
   );
 
   testWidgets(
+    'chemin complet groupe → lettres → Fonctions (balayé) → Menu principal (balayé), '
+    'sans jamais taper sur l\'icône Fonctions de l\'en-tête (patient qui ne peut interagir '
+    'que par le regard — reproduction du bug corrigé)',
+    (tester) async {
+      final engine = _FakeTtsEngine();
+      var exitedToHome = false;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [ttsServiceProvider.overrideWithValue(TtsService(engine: engine))],
+          child: MaterialApp(
+            theme: AppTheme.dark,
+            home: ExpertModeScreen(
+              gazeState: _okGazeState,
+              onExitToHome: () => exitedToHome = true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Le raccourci tactile direct de l'en-tête reste présent (section
+      // 17.3), mais n'est jamais utilisé dans ce test : seule la
+      // validation "dans la fenêtre de surbrillance active" (tap ou
+      // regard, indifféremment côté ScanningGrid) est employée, exactement
+      // ce dont dépend un patient qui ne peut pas taper une icône précise.
+      expect(find.byIcon(Icons.build_outlined), findsOneWidget);
+
+      // Étape 1 (section 8.3) : le groupe A-F est en surbrillance dès le
+      // départ, validé pendant sa fenêtre.
+      expect(find.text('A-F'), findsOneWidget);
+      await tester.tap(find.text('A-F'));
+      await tester.pump();
+
+      // Étape 2 (section 8.4) : 1re page du groupe A-F (A, B, C) + 'Suite'
+      // en bas-droite. La cible "Fonctions" (section 8.6) n'apparaît qu'en
+      // 5e position du balayage de cet écran, après les 4 zones.
+      expect(find.text('A'), findsOneWidget);
+      expect(find.text('Fonctions'), findsNothing);
+      await advanceScan(tester, 4);
+      expect(find.text('Fonctions'), findsOneWidget);
+
+      await tester.tap(find.text('Fonctions'));
+      await tester.pump();
+
+      // Bascule vers l'écran des fonctions minimales (section 8.6) : les 4
+      // zones balayées sont désormais Effacer/Espace/Valider/Menu
+      // principal, sans qu'aucun tap n'ait jamais touché l'icône de
+      // l'en-tête.
+      expect(find.text('Effacer'), findsOneWidget);
+      expect(find.text('Menu principal'), findsOneWidget);
+
+      // 'Menu principal' est la 4e zone balayée (bas-droite) : 3 fenêtres
+      // pour l'atteindre depuis 'Effacer', en surbrillance au départ.
+      await advanceScan(tester, 3);
+      await tester.tap(find.text('Menu principal'));
+      await tester.pump();
+
+      expect(exitedToHome, isTrue);
+      expect(engine.spokenTexts, isEmpty, reason: 'aucune validation n\'a eu lieu dans ce parcours');
+    },
+  );
+
+  testWidgets(
     'un appui hors de la zone en surbrillance ne modifie pas la composition',
     (tester) async {
       final engine = _FakeTtsEngine();
